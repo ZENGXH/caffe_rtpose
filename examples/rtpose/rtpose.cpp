@@ -1,3 +1,5 @@
+#include <cuda_runtime_api.h>
+#include <cuda.h>
 #include <algorithm>
 #include <chrono>
 #include <cstdio>

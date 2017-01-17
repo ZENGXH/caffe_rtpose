@@ -44,6 +44,7 @@ void CPMDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   const int width = this->layer_param_.transform_param().crop_size_x();
   const bool put_gaussian = this->layer_param_.transform_param().put_gaussian();
 
+  LOG(INFO) << "[setup] put_gaussian " << put_gaussian;
   if(put_gaussian){
     top[0]->Reshape(batch_size, 4, height, width);
     for (int i = 0; i < this->PREFETCH_COUNT; ++i) {
@@ -68,13 +69,18 @@ void CPMDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
     const int stride = this->layer_param_.transform_param().stride();
     int num_parts = this->layer_param_.transform_param().num_parts();
 
+    LOG(INFO) << "output label num_parts " <<  num_parts << " has_masks : " << this->layer_param_.transform_param().has_masks() << " PREFETCH_COUNT " << this->PREFETCH_COUNT << "; start reshaping - " << height/stride << " " << width/stride;
     if(this->layer_param_.transform_param().has_masks()) //for mask channel
       num_parts++;
-
+    LOG(INFO) << "top1 size of top " << top.size();
     top[1]->Reshape(batch_size, 2*(num_parts+1), height/stride, width/stride); //plus 1 for background
+    LOG(INFO) << "top2";
     top[2]->Reshape(batch_size, 1, 1, num_parts+1); //plus 1 for background
+    LOG(INFO) << "top done";
     for (int i = 0; i < this->PREFETCH_COUNT; ++i) {
+      LOG(INFO) << "reshape count " << i << "/" << this->PREFETCH_COUNT;
       this->prefetch_[i].label_.Reshape(batch_size, 2*(num_parts+1), height/stride, width/stride);
+      LOG(INFO) << "reshape missing_part_mask_ count " << i << "/" << this->PREFETCH_COUNT;
       this->prefetch_[i].missing_part_mask_.Reshape(batch_size, 1, 1, num_parts);
     }
     this->transformed_label_.Reshape(1, 2*(num_parts+1), height/stride, width/stride);
@@ -136,6 +142,11 @@ void CPMDataLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
     this->transformed_label_.set_cpu_data(top_label + offset_label);
     this->missing_part_mask_.set_cpu_data(top_mask + offset_mask);
 
+//    this->data_transformer_->Transform_bottomup(datum, &(this->transformed_data_), &(this->transformed_label_),
+            
+                                                  //&(this->missing_part_mask_), 
+  //                                                cnt);
+    LOG(INFO) << "bup is ok";
     this->data_transformer_->Transform_CPM(datum, &(this->transformed_data_), &(this->transformed_label_),
                                                   &(this->missing_part_mask_), cnt);
     ++cnt;

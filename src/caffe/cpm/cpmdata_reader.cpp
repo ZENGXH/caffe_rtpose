@@ -74,6 +74,7 @@ CPMDataReader::Body::~Body() {
 
 void CPMDataReader::Body::InternalThreadEntry() {
   shared_ptr<db::DB> db(db::GetDB(param_.cpmdata_param().backend())); // note data_param and cpmdata_param is conflicting..
+  LOG(INFO) << " []LMDB " << param_.cpmdata_param().source();
   db->Open(param_.cpmdata_param().source(), db::READ);
   shared_ptr<db::Cursor> cursor(db->NewCursor());
   vector<shared_ptr<QueuePair> > qps;
