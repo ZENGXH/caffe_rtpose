@@ -105,6 +105,7 @@ protected:
   void visualize(Mat& img, MetaData meta, AugmentSelection as, Dtype* mask, Mat& teeth_mask);
   void visualize(Mat& img, MetaData meta, AugmentSelection as, Mat& coco_mask);
 
+  void visualizeLabelMap(const Dtype* transformed_label, Mat& img_aug);
   void putScaleMaps(Dtype* entry, Point2f center, int stride, int grid_x, int grid_y, float sigma, float scale_normalize);
 
   int augmentation_flip(Mat& img, Mat& img_aug, MetaData& meta, int);
