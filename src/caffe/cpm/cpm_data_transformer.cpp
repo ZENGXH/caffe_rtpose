@@ -25,12 +25,10 @@ using namespace std;
 namespace caffe {
 
 template<typename Dtype>
-CpmDataTransformer<Dtype>::CpmDataTransformer(const TransformationParameter& param, Phase phase) :
-    DataTransformer<Dtype>(param, phase) {
+CpmDataTransformer<Dtype>::CpmDataTransformer(const TransformationParameter& param, Phase phase) : DataTransformer<Dtype>(param, phase) {
   np_in_lmdb = this->param_.np_in_lmdb();
   np = this->param_.num_parts();
   is_table_set = false;
-
   ofs_analysis.open("analysis.log", ofstream::out);
 }
 
@@ -320,6 +318,7 @@ void CpmDataTransformer<Dtype>::TransformJoints(Joints& j) {
     }
   }
   else if(np == 56){
+    // 6 & 7 make neck
     int COCO_to_ours_1[18] = {1,6, 7,9,11, 6,8,10, 13,15,17, 12,14,16, 3,2,5,4};
     int COCO_to_ours_2[18] = {1,7, 7,9,11, 6,8,10, 13,15,17, 12,14,16, 3,2,5,4};
     jo.joints.resize(18);
@@ -1858,6 +1857,7 @@ void CpmDataTransformer<Dtype>::Transform_bottomup(const Datum& datum, Blob<Dtyp
 
 template<typename Dtype>
 void CpmDataTransformer<Dtype>::ReadMetaData_bottomup(MetaData& meta, const string& data, size_t offset3, size_t offset1) { //very specific to genLMDB.py
+  meta.type = "cpm";
   // ------------------- Dataset name ----------------------
   meta.dataset = DecodeString(data, offset3);
   // ------------------- Image Dimension -------------------
@@ -2046,6 +2046,7 @@ void CpmDataTransformer<Dtype>::Transform_bottomup(const Datum& datum, Dtype* tr
   int offset = img.rows * img.cols;
   int dindex;
   Dtype d_element;
+  // bottom up: datum channel == 6, 0-2 is RGB, 4 is miss_mask, 5 is all_mask
   for (int i = 0; i < img.rows; ++i) {
     for (int j = 0; j < img.cols; ++j) {
       Vec3b& rgb = img.at<Vec3b>(i, j);
@@ -2245,6 +2246,7 @@ void CpmDataTransformer<Dtype>::Transform_bottomup(const Datum& datum, Dtype* tr
 }
 
 // include mask_miss
+// called by Transform_bottomup
 template<typename Dtype>
 float CpmDataTransformer<Dtype>::augmentation_scale(Mat& img_src, Mat& img_temp,
                                                  Mat& mask_miss, Mat& mask_all,
@@ -2423,7 +2425,7 @@ template<typename Dtype>
 float CpmDataTransformer<Dtype>::augmentation_rotate(Mat& img_src, Mat& img_dst, Mat& mask_miss, Mat& mask_all, MetaData& meta) {
 
   float degree;
-  if(this->param_.aug_way() == "rand"){
+  if(this->param_.aug_way() == "rand"){ // by default
     float dice = static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
     degree = (dice - 0.5) * 2 * this->param_.max_rotate_degree();
   }
@@ -2823,39 +2825,36 @@ void CpmDataTransformer<Dtype>::generateLabelMap(Dtype* transformed_label, Mat& 
   //LOG(INFO) << "label cleaned";
 
   if (np == 37){
+    // put joint gaussian
     for (int i = 0; i < 18; i++){
       Point2f center = meta.joint_self.joints[i];
       if(meta.joint_self.isVisible[i] <= 1){
-        putGaussianMaps(transformed_label + (i+np+1)*channelOffset, center, this->param_.stride(),
-                        grid_x, grid_y, this->param_.sigma()); //self
+        putGaussianMaps(transformed_label + (i+np+1)*channelOffset, center, this->param_.stride(), grid_x, grid_y, this->param_.sigma()); //self
       }
       for(int j = 0; j < meta.numOtherPeople; j++){ //for every other person
         Point2f center = meta.joint_others[j].joints[i];
         if(meta.joint_others[j].isVisible[i] <= 1){
-          putGaussianMaps(transformed_label + (i+np+1)*channelOffset, center, this->param_.stride(),
-                          grid_x, grid_y, this->param_.sigma());
+          putGaussianMaps(transformed_label + (i+np+1)*channelOffset, center, this->param_.stride(), grid_x, grid_y, this->param_.sigma());
         }
       }
     }
 
     int mid_1[19] = {2, 9,  10, 2,  12, 13, 2, 3, 4, 3,  2, 6, 7, 6,  2, 1,  1,  15, 16};
     int mid_2[19] = {9, 10, 11, 12, 13, 14, 3, 4, 5, 17, 6, 7, 8, 18, 1, 15, 16, 17, 18};
-
+    // channel 37 + 19 = 56 -> 56 + 19
     for(int i=0;i<19;i++){
       for (int j=1;j<=3;j++){
         Joints jo = meta.joint_self;
         if(jo.isVisible[mid_1[i]-1]<=1 && jo.isVisible[mid_2[i]-1]<=1){
           Point2f center = jo.joints[mid_1[i]-1]*(1-j*0.25) + jo.joints[mid_2[i]-1]*j*0.25;
-          putGaussianMaps(transformed_label + (np+19+i)*channelOffset, center, this->param_.stride(),
-                        grid_x, grid_y, this->param_.sigma()); //self
+          putGaussianMaps(transformed_label + (np+19+i)*channelOffset, center, this->param_.stride(), grid_x, grid_y, this->param_.sigma()); //self
         }
 
         for(int j = 0; j < meta.numOtherPeople; j++){ //for every other person
           Joints jo2 = meta.joint_others[j];
           if(jo2.isVisible[mid_1[i]-1]<=1 && jo2.isVisible[mid_2[i]-1]<=1){
             Point2f center = jo2.joints[mid_1[i]-1]*(1-j*0.25) + jo2.joints[mid_2[i]-1]*j*0.25;
-            putGaussianMaps(transformed_label + (np+19+i)*channelOffset, center, this->param_.stride(),
-                            grid_x, grid_y, this->param_.sigma());
+            putGaussianMaps(transformed_label + (np+19+i)*channelOffset, center, this->param_.stride(), grid_x, grid_y, this->param_.sigma());
             // np = 37
           }
         }
@@ -2874,11 +2873,11 @@ void CpmDataTransformer<Dtype>::generateLabelMap(Dtype* transformed_label, Mat& 
       }
     }
     //LOG(INFO) << "background put";
-  }
+  } // end of np == 38
   else if (np == 56){ // fill last 57 of the 114 channels here: (np+1) channels are already filled
                       //(19*2 x,y vec + 18+1 parts), but 114 channel to fill?
 
-    // vec maps
+    // vec maps 56+1 -> 56+1 + 19*2
     int mid_1[19] = {2, 9,  10, 2,  12, 13, 2, 3, 4, 3,  2, 6, 7, 6,  2, 1,  1,  15, 16};
     int mid_2[19] = {9, 10, 11, 12, 13, 14, 3, 4, 5, 17, 6, 7, 8, 18, 1, 15, 16, 17, 18};
     int thre = 1;
@@ -2914,7 +2913,7 @@ void CpmDataTransformer<Dtype>::generateLabelMap(Dtype* transformed_label, Mat& 
     }
 
 
-
+    // 56+1+38 -> 56+1+38 + 17, joint heat map
     for (int i = 0; i < 18; i++){
       Point2f center = meta.joint_self.joints[i];
       float peak_ratio = 1;
@@ -2939,7 +2938,7 @@ void CpmDataTransformer<Dtype>::generateLabelMap(Dtype* transformed_label, Mat& 
       }
     }
 
-    if(!this->param_.per_part_scale()){
+    if(!this->param_.per_part_scale()){ // by default
       //put background channel
       for (int g_y = 0; g_y < grid_y; g_y++){
         for (int g_x = 0; g_x < grid_x; g_x++){
@@ -2947,10 +2946,12 @@ void CpmDataTransformer<Dtype>::generateLabelMap(Dtype* transformed_label, Mat& 
           for (int i = np+1+38; i < np+1+38+18; i++){
             maximum = (maximum > transformed_label[i*channelOffset + g_y*grid_x + g_x]) ? maximum : transformed_label[i*channelOffset + g_y*grid_x + g_x];
           }
+          // 2*56 + 1 = 113 channel is the background
           transformed_label[(2*np+1)*channelOffset + g_y*grid_x + g_x] = max(1.0-maximum, 0.0); // last ch
         }
       }
-    } else {
+    } else { 
+      // not per_part_scale
       for(int i = 0; i < 18; i++){
         Point2f center = meta.joint_self.joints[i];
         float scale_normalize = meta.scale_self - 0.6; // scale_self will be around 0
@@ -2970,21 +2971,19 @@ void CpmDataTransformer<Dtype>::generateLabelMap(Dtype* transformed_label, Mat& 
     }
     //LOG(INFO) << "background put";
   }
-  else{
+  else{ // np != 38 and np != 56
     for (int i = 0; i < np; i++){
       //LOG(INFO) << i << meta.numOtherPeople;
       Point2f center = meta.joint_self.joints[i];
       if(meta.joint_self.isVisible[i] <= 1){
-        putGaussianMaps(transformed_label + (i+np+1)*channelOffset, center, this->param_.stride(),
-                        grid_x, grid_y, this->param_.sigma()); //self
+        putGaussianMaps(transformed_label + (i+np+1)*channelOffset, center, this->param_.stride(), grid_x, grid_y, this->param_.sigma()); //self
       }
       //LOG(INFO) << "label put for" << i;
       //plot others
       for(int j = 0; j < meta.numOtherPeople; j++){ //for every other person
         Point2f center = meta.joint_others[j].joints[i];
         if(meta.joint_others[j].isVisible[i] <= 1){
-          putGaussianMaps(transformed_label + (i+np+1)*channelOffset, center, this->param_.stride(),
-                          grid_x, grid_y, this->param_.sigma());
+          putGaussianMaps(transformed_label + (i+np+1)*channelOffset, center, this->param_.stride(), grid_x, grid_y, this->param_.sigma());
         }
       }
     }
