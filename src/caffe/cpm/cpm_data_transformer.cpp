@@ -1348,13 +1348,31 @@ void CpmDataTransformer<Dtype>::dumpEverything(Dtype* transformed_data, Dtype* t
   myfile.close();
 
   // sprintf(filename, "transformed_label_%04d_%02d", meta.annolist_index, meta.people_index);
-  sprintf(filename, "transformed_label_%s_%d_%d", meta.file_name.c_str(), int(meta.objpos.x), int(meta.objpos.y));
+  int joint_length = this->param_.crop_size_y() * this->param_.crop_size_x() / this->param_.stride() / this->param_.stride() * (18);
+  int limb_length = this->param_.crop_size_y() * this->param_.crop_size_x() / this->param_.stride() / this->param_.stride() * (38);
+
+  sprintf(filename, "transformed_label_joint_%s_%d_%d", meta.file_name.c_str(), int(meta.objpos.x), int(meta.objpos.y));
   myfile.open(filename);
   int label_length = this->param_.crop_size_y() * this->param_.crop_size_x() / this->param_.stride() / this->param_.stride() * (this->param_.num_parts()+1);
-  for(int i = 0; i<label_length; i++){
-    myfile << transformed_label[i] << " ";
+  for(int i = 0; i<joint_length; i++){
+    myfile << transformed_label[label_length + i + limb_length] << " ";
   }
   myfile.close();
+
+  sprintf(filename, "transformed_label_limb_%s_%d_%d", meta.file_name.c_str(), int(meta.objpos.x), int(meta.objpos.y));
+  myfile.open(filename);
+  for(int i = 0; i < limb_length; i++){
+    myfile << transformed_label[label_length + i] << " ";
+  }
+  myfile.close();
+
+  sprintf(filename, "transformed_label_bg_%s_%d_%d", meta.file_name.c_str(), int(meta.objpos.x), int(meta.objpos.y));
+  myfile.open(filename);
+  for(int i = 0; i < 1; i++){
+    myfile << transformed_label[label_length + i + limb_length + joint_length + 1] << " ";
+  }
+  myfile.close();
+
 }
 
 template<typename Dtype>
@@ -1999,29 +2017,29 @@ void CpmDataTransformer<Dtype>::ReadMetaData_bottomup(MetaData& meta, const stri
   myfile << filename << " ";
   myfile << 1 + meta.numOtherPeople << " " ;
   // myfile << meta.bbox.left << " " << meta.bbox.top << " " << meta.bbox.width << " " << meta.bbox.height << " ";
-  myfile << meta.objpos.x << " " << meta.objpos.y << " " << meta.bbox.width << " " << meta.bbox.height << " ";
+  myfile << meta.objpos.x + 1 << " " << meta.objpos.y + 1<< " " << meta.bbox.width << " " << meta.bbox.height << " ";
   TransformMetaJoints(meta); 
   int left = 6;
   int right = 7;
   for(int i=0; i<np_in_lmdb; i++){
     // c++; myfile << "(" << c << ") ";
     myfile 
-        << meta.joint_self.joints[i].x  << " "
-        << meta.joint_self.joints[i].y << " "  
+        << meta.joint_self.joints[i].x + 1 << " "
+        << meta.joint_self.joints[i].y + 1<< " "  
         << meta.joint_self.isVisible[i] << " ";
   }
 
   for(int p=0; p<meta.numOtherPeople; p++){
       // c = 0;
-      myfile << meta.objpos_other[p].x << " "
-          << meta.objpos_other[p].y << " "
+      myfile << meta.objpos_other[p].x + 1 << " "
+          << meta.objpos_other[p].y + 1 << " "
           << meta.bboxes_other[p].width << " "
           << meta.bboxes_other[p].height << " ";
     for(int i=0; i<np_in_lmdb; i++){
     // c++; myfile << "(" << c << ") ";
           myfile 
-              << meta.joint_others[p].joints[i].x << " " 
-              << meta.joint_others[p].joints[i].y << " "
+              << meta.joint_others[p].joints[i].x + 1<< " " 
+              << meta.joint_others[p].joints[i].y + 1<< " "
               << meta.joint_others[p].isVisible[i] << " " ;
       }
   }
@@ -2147,7 +2165,7 @@ void CpmDataTransformer<Dtype>::Transform_bottomup(const Datum& datum, Dtype* tr
   char name[100];
   sprintf(name, "COCO_train_%012d.jpg", meta.annolist_index);
   meta.file_name = name;
-  /**
+ 
   LOG(INFO) << " testing image save mask_miss & mask_all" ;
   static int count = 0; count ++;
   sprintf(name, "mask_COCO_train_%012d.jpg", meta.annolist_index);
@@ -2156,7 +2174,7 @@ void CpmDataTransformer<Dtype>::Transform_bottomup(const Datum& datum, Dtype* tr
   imwrite(name, mask_all);
   sprintf(name, "COCO_train_%012d.jpg", meta.annolist_index);
   imwrite(name, img);
-  **/
+  
   if(this->param_.transform_body_joint()) // we expect to transform body joints, and not to transform hand joints
     TransformMetaJoints(meta); //when np = 56, np_in_lmdb becomes 18 from 17 here
 
