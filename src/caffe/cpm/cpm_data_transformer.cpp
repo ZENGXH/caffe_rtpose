@@ -25,10 +25,12 @@ using namespace std;
 namespace caffe {
 
 template<typename Dtype>
-CpmDataTransformer<Dtype>::CpmDataTransformer(const TransformationParameter& param, Phase phase) : DataTransformer<Dtype>(param, phase) {
+CpmDataTransformer<Dtype>::CpmDataTransformer(const TransformationParameter& param, Phase phase) :
+    DataTransformer<Dtype>(param, phase) {
   np_in_lmdb = this->param_.np_in_lmdb();
   np = this->param_.num_parts();
   is_table_set = false;
+
   ofs_analysis.open("analysis.log", ofstream::out);
 }
 
@@ -94,7 +96,6 @@ void CpmDataTransformer<Dtype>::ReadMetaData(MetaData& meta, const string& data,
   meta.objpos -= Point2f(1,1);
   // ------------ scale_self, joint_self --------------
   DecodeFloats(data, offset3+4*offset1, &meta.scale_self, 1);
-  meta.joint_self.joints.resize(np_in_lmdb);
   meta.joint_self.isVisible.resize(np_in_lmdb);
   for(int i=0; i<np_in_lmdb; i++){
     DecodeFloats(data, offset3+5*offset1+4*i, &meta.joint_self.joints[i].x, 1);
@@ -318,7 +319,6 @@ void CpmDataTransformer<Dtype>::TransformJoints(Joints& j) {
     }
   }
   else if(np == 56){
-    // 6 & 7 make neck
     int COCO_to_ours_1[18] = {1,6, 7,9,11, 6,8,10, 13,15,17, 12,14,16, 3,2,5,4};
     int COCO_to_ours_2[18] = {1,7, 7,9,11, 6,8,10, 13,15,17, 12,14,16, 3,2,5,4};
     jo.joints.resize(18);
@@ -1798,6 +1798,7 @@ void CpmDataTransformer<Dtype>::Transform_COCO(const Datum& datum, Dtype* transf
 //}
 }
 
+// subcall bottomup
 template<typename Dtype>
 void CpmDataTransformer<Dtype>::Transform_bottomup(const Datum& datum, Blob<Dtype>* transformed_data, Blob<Dtype>* transformed_label, int cnt) {
   //std::cout << "Function 2 is used"; std::cout.flush();
@@ -1858,7 +1859,6 @@ void CpmDataTransformer<Dtype>::Transform_bottomup(const Datum& datum, Blob<Dtyp
 
 template<typename Dtype>
 void CpmDataTransformer<Dtype>::ReadMetaData_bottomup(MetaData& meta, const string& data, size_t offset3, size_t offset1) { //very specific to genLMDB.py
-  meta.type = "cpm";
   // ------------------- Dataset name ----------------------
   meta.dataset = DecodeString(data, offset3);
   // ------------------- Image Dimension -------------------
@@ -1893,11 +1893,7 @@ void CpmDataTransformer<Dtype>::ReadMetaData_bottomup(MetaData& meta, const stri
   }
   meta.epoch = cur_epoch;
   if(meta.write_number % 1000 == 0){
-    LOG(INFO) << "dataset: " << meta.dataset << " mete.type " << meta.type << "; img_size: " << meta.img_size <<  "; image_id: " << meta.image_id
-        << "; meta.annolist_index: " << meta.annolist_index << "; meta.write_number: " << meta.write_number
-        << "; meta.total_write_number: " << meta.total_write_number
-        << "; meta.num_keypoints_self: " << meta.num_keypoints_self << "; meta.segmentation_area: " << meta.segmentation_area
-        << "; meta.epoch: " << meta.epoch;
+    LOG(INFO) << "dataset: " << meta.dataset << " mete.type " << meta.type << "; img_size: " << meta.img_size <<  "; image_id: " << meta.image_id << "; meta.annolist_index: " << meta.annolist_index << "; meta.write_number: " << meta.write_number << "; meta.total_write_number: " << meta.total_write_number << "; meta.num_keypoints_self: " << meta.num_keypoints_self << "; meta.segmentation_area: " << meta.segmentation_area << "; meta.epoch: " << meta.epoch;
         LOG(INFO) << "np_in_lmdb" << np_in_lmdb;
   }
   if(this->param_.aug_way() == "table" && !is_table_set){
@@ -1913,6 +1909,7 @@ void CpmDataTransformer<Dtype>::ReadMetaData_bottomup(MetaData& meta, const stri
   DecodeFloats(data, offset3+3*offset1+12, &meta.bbox.top, 1);
   DecodeFloats(data, offset3+3*offset1+16, &meta.bbox.width, 1);
   DecodeFloats(data, offset3+3*offset1+20, &meta.bbox.height, 1);
+    LOG(INFO) << " get o box: pos: " << meta.objpos.x << " " << meta.objpos.y << " , box " << meta.bbox.left << " " << meta.bbox.top << " " << meta.bbox.width << " " << meta.bbox.height << "area "<< meta.segmentation_area;
   //meta.bbox.left -= 1;
   //meta.bbox.top -= 1;
 
@@ -1991,7 +1988,43 @@ void CpmDataTransformer<Dtype>::ReadMetaData_bottomup(MetaData& meta, const stri
     }
   }
 
-  //LOG(INFO) << "Meta read done.";
+  LOG(INFO) << "Meta read done.";
+  ofstream myfile;
+  myfile.open("COCO_train_list.txt", ios::out | ios::app);
+
+  char filename[100];
+  sprintf(filename, "COCO_train_%012d.jpg", meta.annolist_index);
+  myfile << filename << " ";
+  myfile << 1 + meta.numOtherPeople << " " ;
+  // myfile << meta.bbox.left << " " << meta.bbox.top << " " << meta.bbox.width << " " << meta.bbox.height << " ";
+  myfile << meta.objpos.x << " " << meta.objpos.y << " " << meta.bbox.width << " " << meta.bbox.height << " ";
+  TransformMetaJoints(meta); 
+  int left = 6;
+  int right = 7;
+  for(int i=0; i<np_in_lmdb; i++){
+    // c++; myfile << "(" << c << ") ";
+    myfile 
+        << meta.joint_self.joints[i].x  << " "
+        << meta.joint_self.joints[i].y << " "  
+        << meta.joint_self.isVisible[i] << " ";
+  }
+
+  for(int p=0; p<meta.numOtherPeople; p++){
+      // c = 0;
+      myfile << meta.objpos_other[p].x << " "
+          << meta.objpos_other[p].y << " "
+          << meta.bboxes_other[p].width << " "
+          << meta.bboxes_other[p].height << " ";
+    for(int i=0; i<np_in_lmdb; i++){
+    // c++; myfile << "(" << c << ") ";
+          myfile 
+              << meta.joint_others[p].joints[i].x << " " 
+              << meta.joint_others[p].joints[i].y << " "
+              << meta.joint_others[p].isVisible[i] << " " ;
+      }
+  }
+  myfile << "\n";
+  myfile.close();
 }
 
 
@@ -2045,7 +2078,6 @@ void CpmDataTransformer<Dtype>::Transform_bottomup(const Datum& datum, Dtype* tr
   int offset = img.rows * img.cols;
   int dindex;
   Dtype d_element;
-  // bottom up: datum channel == 6, 0-2 is RGB, 4 is miss_mask, 5 is all_mask
   for (int i = 0; i < img.rows; ++i) {
     for (int j = 0; j < img.cols; ++j) {
       Vec3b& rgb = img.at<Vec3b>(i, j);
@@ -2083,10 +2115,8 @@ void CpmDataTransformer<Dtype>::Transform_bottomup(const Datum& datum, Dtype* tr
 
   // if(this->param_().vis()){
 
-  //LOG(INFO) << " testing image save mask_miss & mask_all" ;
-  //imwrite("mask_miss.jpg", mask_miss);
-  //imwrite("mask_all.jpg", mask_all);
-  //}
+
+  
   // if(mode >= 5){
   //   Mat erosion_dst;
   //   int erosion_size = 1;
@@ -2112,7 +2142,17 @@ void CpmDataTransformer<Dtype>::Transform_bottomup(const Datum& datum, Dtype* tr
   int offset1 = datum_width;
   int stride = this->param_.stride();
   ReadMetaData_bottomup(meta, data, offset3, offset1);
-
+  /**
+  LOG(INFO) << " testing image save mask_miss & mask_all" ;
+  static int count = 0; count ++;
+  char name[100];
+  sprintf(name, "mask_COCO_train_%012d.jpg", meta.annolist_index);
+  imwrite(name, mask_miss);
+  sprintf(name, "%d_all.jpg", meta.annolist_index);
+  imwrite(name, mask_all);
+  sprintf(name, "COCO_train_%012d.jpg", meta.annolist_index);
+  imwrite(name, img);
+  **/
   if(this->param_.transform_body_joint()) // we expect to transform body joints, and not to transform hand joints
     TransformMetaJoints(meta); //when np = 56, np_in_lmdb becomes 18 from 17 here
 
@@ -2245,7 +2285,6 @@ void CpmDataTransformer<Dtype>::Transform_bottomup(const Datum& datum, Dtype* tr
 }
 
 // include mask_miss
-// called by Transform_bottomup
 template<typename Dtype>
 float CpmDataTransformer<Dtype>::augmentation_scale(Mat& img_src, Mat& img_temp,
                                                  Mat& mask_miss, Mat& mask_all,
@@ -2424,7 +2463,7 @@ template<typename Dtype>
 float CpmDataTransformer<Dtype>::augmentation_rotate(Mat& img_src, Mat& img_dst, Mat& mask_miss, Mat& mask_all, MetaData& meta) {
 
   float degree;
-  if(this->param_.aug_way() == "rand"){ // by default
+  if(this->param_.aug_way() == "rand"){
     float dice = static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
     degree = (dice - 0.5) * 2 * this->param_.max_rotate_degree();
   }
@@ -2825,7 +2864,6 @@ void CpmDataTransformer<Dtype>::generateLabelMap(Dtype* transformed_label, Mat& 
   //LOG(INFO) << "label cleaned";
 
   if (np == 37){
-    // put joint gaussian
     for (int i = 0; i < 18; i++){
       Point2f center = meta.joint_self.joints[i];
       if(meta.joint_self.isVisible[i] <= 1){
@@ -2834,27 +2872,30 @@ void CpmDataTransformer<Dtype>::generateLabelMap(Dtype* transformed_label, Mat& 
       for(int j = 0; j < meta.numOtherPeople; j++){ //for every other person
         Point2f center = meta.joint_others[j].joints[i];
         if(meta.joint_others[j].isVisible[i] <= 1){
-          putGaussianMaps(transformed_label + (i+np+1)*channelOffset, center, this->param_.stride(), grid_x, grid_y, this->param_.sigma());
+          putGaussianMaps(transformed_label + (i+np+1)*channelOffset, center, this->param_.stride(),
+                          grid_x, grid_y, this->param_.sigma());
         }
       }
     }
 
     int mid_1[19] = {2, 9,  10, 2,  12, 13, 2, 3, 4, 3,  2, 6, 7, 6,  2, 1,  1,  15, 16};
     int mid_2[19] = {9, 10, 11, 12, 13, 14, 3, 4, 5, 17, 6, 7, 8, 18, 1, 15, 16, 17, 18};
-    // channel 37 + 19 = 56 -> 56 + 19
+
     for(int i=0;i<19;i++){
       for (int j=1;j<=3;j++){
         Joints jo = meta.joint_self;
         if(jo.isVisible[mid_1[i]-1]<=1 && jo.isVisible[mid_2[i]-1]<=1){
           Point2f center = jo.joints[mid_1[i]-1]*(1-j*0.25) + jo.joints[mid_2[i]-1]*j*0.25;
-          putGaussianMaps(transformed_label + (np+19+i)*channelOffset, center, this->param_.stride(), grid_x, grid_y, this->param_.sigma()); //self
+          putGaussianMaps(transformed_label + (np+19+i)*channelOffset, center, this->param_.stride(),
+                        grid_x, grid_y, this->param_.sigma()); //self
         }
 
         for(int j = 0; j < meta.numOtherPeople; j++){ //for every other person
           Joints jo2 = meta.joint_others[j];
           if(jo2.isVisible[mid_1[i]-1]<=1 && jo2.isVisible[mid_2[i]-1]<=1){
             Point2f center = jo2.joints[mid_1[i]-1]*(1-j*0.25) + jo2.joints[mid_2[i]-1]*j*0.25;
-            putGaussianMaps(transformed_label + (np+19+i)*channelOffset, center, this->param_.stride(), grid_x, grid_y, this->param_.sigma());
+            putGaussianMaps(transformed_label + (np+19+i)*channelOffset, center, this->param_.stride(),
+                            grid_x, grid_y, this->param_.sigma());
             // np = 37
           }
         }
@@ -2873,11 +2914,11 @@ void CpmDataTransformer<Dtype>::generateLabelMap(Dtype* transformed_label, Mat& 
       }
     }
     //LOG(INFO) << "background put";
-  } // end of np == 38
-  else if (np == 56){ // fill last 57 of the 114 channels here: (np+1) channels are already filled
-                      //(19*2 x,y vec + 18+1 parts), but 114 channel to fill?
-
-    // vec maps 56+1 -> 56+1 + 19*2
+  } // end if np == 37
+  else if (np == 56){ 
+      // fill last 57 of the 114 channels here: (np+1) channels are already filled
+      //(19*2 x,y vec + 18+1 parts), but 114 channel to fill?
+      // vec maps
     int mid_1[19] = {2, 9,  10, 2,  12, 13, 2, 3, 4, 3,  2, 6, 7, 6,  2, 1,  1,  15, 16};
     int mid_2[19] = {9, 10, 11, 12, 13, 14, 3, 4, 5, 17, 6, 7, 8, 18, 1, 15, 16, 17, 18};
     int thre = 1;
@@ -2914,7 +2955,6 @@ void CpmDataTransformer<Dtype>::generateLabelMap(Dtype* transformed_label, Mat& 
     }
 
     //2. put joint gaussianmap, 18 keypoints
-    // 56+1+38 -> 56+1+38 + 17, joint heat map
     for (int i = 0; i < 18; i++){
       Point2f center = meta.joint_self.joints[i];
       float peak_ratio = 1;
@@ -2939,20 +2979,18 @@ void CpmDataTransformer<Dtype>::generateLabelMap(Dtype* transformed_label, Mat& 
       }
     }
 
-    if(!this->param_.per_part_scale()){ // by default
+    if(!this->param_.per_part_scale()){ // per_part_scale == false
       //put background channel
       for (int g_y = 0; g_y < grid_y; g_y++){
         for (int g_x = 0; g_x < grid_x; g_x++){
           float maximum = 0;
           for (int i = np+1+38; i < np+1+38+18; i++){
             maximum = (maximum > transformed_label[i*channelOffset + g_y*grid_x + g_x]) ? maximum : transformed_label[i*channelOffset + g_y*grid_x + g_x];
-          }
-          // 2*56 + 1 = 113 channel is the background
+          } // find the maximum of all the joint gaussian heatmap
           transformed_label[(2*np+1)*channelOffset + g_y*grid_x + g_x] = max(1.0-maximum, 0.0); // last ch
         }
       }
-    } else { 
-      // not per_part_scale
+    } else { // per_part_scale == true
       for(int i = 0; i < 18; i++){
         Point2f center = meta.joint_self.joints[i];
         float scale_normalize = meta.scale_self - 0.6; // scale_self will be around 0
@@ -2972,19 +3010,21 @@ void CpmDataTransformer<Dtype>::generateLabelMap(Dtype* transformed_label, Mat& 
     }
     //LOG(INFO) << "background put";
   }
-  else{ // np != 38 and np != 56
+  else{
     for (int i = 0; i < np; i++){
       //LOG(INFO) << i << meta.numOtherPeople;
       Point2f center = meta.joint_self.joints[i];
       if(meta.joint_self.isVisible[i] <= 1){
-        putGaussianMaps(transformed_label + (i+np+1)*channelOffset, center, this->param_.stride(), grid_x, grid_y, this->param_.sigma()); //self
+        putGaussianMaps(transformed_label + (i+np+1)*channelOffset, center, this->param_.stride(),
+                        grid_x, grid_y, this->param_.sigma()); //self
       }
       //LOG(INFO) << "label put for" << i;
       //plot others
       for(int j = 0; j < meta.numOtherPeople; j++){ //for every other person
         Point2f center = meta.joint_others[j].joints[i];
         if(meta.joint_others[j].isVisible[i] <= 1){
-          putGaussianMaps(transformed_label + (i+np+1)*channelOffset, center, this->param_.stride(), grid_x, grid_y, this->param_.sigma());
+          putGaussianMaps(transformed_label + (i+np+1)*channelOffset, center, this->param_.stride(),
+                          grid_x, grid_y, this->param_.sigma());
         }
       }
     }
