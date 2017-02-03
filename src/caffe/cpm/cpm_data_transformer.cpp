@@ -348,7 +348,7 @@ float CpmDataTransformer<Dtype>::augmentation_scale(Mat& img_src, Mat& img_temp,
   bool change_meta = 0;
   if(scale_multiplier == -1){
     change_meta = 1;
-    float dice = static_cast <float> (rand()) / static_cast <float> (RAND_MAX); //[0,1]
+    float dice = 0.5; //static_cast <float> (rand()) / static_cast <float> (RAND_MAX); //[0,1]
     //float scale_multiplier;
     //float scale = (this->param_.scale_max() - this->param_.scale_min()) * dice + this->param_.scale_min(); //linear shear into [scale_min, scale_max]
     if(dice > this->param_.scale_prob()) {
@@ -356,7 +356,7 @@ float CpmDataTransformer<Dtype>::augmentation_scale(Mat& img_src, Mat& img_temp,
       scale_multiplier = 1;
     }
     else {
-      float dice2 = static_cast <float> (rand()) / static_cast <float> (RAND_MAX); //[0,1]
+      float dice2 = 0.5; // static_cast <float> (rand()) / static_cast <float> (RAND_MAX); //[0,1]
       scale_multiplier = (this->param_.scale_max() - this->param_.scale_min()) * dice2 + this->param_.scale_min(); //linear shear into [scale_min, scale_max]
     }
   }
@@ -417,8 +417,8 @@ Size CpmDataTransformer<Dtype>::augmentation_croppad(Mat& img_src, Mat& img_dst,
   bool change_meta = 0;
   if(anchor.width == -999 && anchor.height == -999){
     change_meta = 1;
-    float dice_x = static_cast <float> (rand()) / static_cast <float> (RAND_MAX); //[0,1]
-    float dice_y = static_cast <float> (rand()) / static_cast <float> (RAND_MAX); //[0,1]
+    float dice_x = 0.5; // tatic_cast <float> (rand()) / static_cast <float> (RAND_MAX); //[0,1]
+    float dice_y = 0.5; // static_cast <float> (rand()) / static_cast <float> (RAND_MAX); //[0,1]
 
     anchor.width = int((dice_x - 0.5) * 2 * this->param_.center_perterb_max());
     anchor.height = int((dice_y - 0.5) * 2 * this->param_.center_perterb_max());
@@ -692,7 +692,7 @@ int CpmDataTransformer<Dtype>::augmentation_flip(Mat& img_src, Mat& img_aug, Met
   if(doflip == -1){ //-1:not set, 0:no, 1: yes
     change_meta = 1;
     if(this->param_.aug_way() == "rand"){
-      float dice = static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
+      float dice = 0.5; // static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
       doflip = (dice <= this->param_.flip_prob());
     }
     else if(this->param_.aug_way() == "table"){
@@ -760,7 +760,7 @@ float CpmDataTransformer<Dtype>::augmentation_rotate(Mat& img_src, Mat& img_dst,
   if(degree == -999){
     change_meta = 1;
     if(this->param_.aug_way() == "rand"){
-      float dice = static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
+      float dice = 0.5; // static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
       degree = (dice - 0.5) * 2 * this->param_.max_rotate_degree();
     }
     else if(this->param_.aug_way() == "table"){
@@ -2290,7 +2290,7 @@ float CpmDataTransformer<Dtype>::augmentation_scale(Mat& img_src, Mat& img_temp,
                                                  Mat& mask_miss, Mat& mask_all,
                                                  MetaData& meta) {
   // imwrite("test.jpg", img_src);
-  float dice = static_cast <float> (rand()) / static_cast <float> (RAND_MAX); //[0,1]
+  float dice = 0.5; //static_cast <float> (rand()) / static_cast <float> (RAND_MAX); //[0,1]
   float scale_multiplier;
   //float scale = (this->param_.scale_max() - this->param_.scale_min()) * dice + this->param_.scale_min(); //linear shear into [scale_min, scale_max]
   if(dice > this->param_.scale_prob()) {
@@ -2298,7 +2298,7 @@ float CpmDataTransformer<Dtype>::augmentation_scale(Mat& img_src, Mat& img_temp,
     scale_multiplier = 1;
   }
   else {
-    float dice2 = static_cast <float> (rand()) / static_cast <float> (RAND_MAX); //[0,1]
+    float dice2 = 0.5; // static_cast <float> (rand()) / static_cast <float> (RAND_MAX); //[0,1]
     scale_multiplier = (this->param_.scale_max() - this->param_.scale_min()) * dice2 + this->param_.scale_min(); //linear shear into [scale_min, scale_max]
   }
   float scale_abs;
@@ -2355,8 +2355,8 @@ float CpmDataTransformer<Dtype>::augmentation_scale(Mat& img_src, Mat& img_temp,
 
 template<typename Dtype>
 Size CpmDataTransformer<Dtype>::augmentation_croppad(Mat& img_src, Mat& img_dst, Mat& mask_miss, Mat& mask_miss_aug, Mat& mask_all, Mat& mask_all_aug, MetaData& meta) {
-  float dice_x = static_cast <float> (rand()) / static_cast <float> (RAND_MAX); //[0,1]
-  float dice_y = static_cast <float> (rand()) / static_cast <float> (RAND_MAX); //[0,1]
+  float dice_x = 0.5; // static_cast <float> (rand()) / static_cast <float> (RAND_MAX); //[0,1]
+  float dice_y = 0.5; // static_cast <float> (rand()) / static_cast <float> (RAND_MAX); //[0,1]
   int crop_x = this->param_.crop_size_x();
   int crop_y = this->param_.crop_size_y();
 
@@ -2412,7 +2412,7 @@ template<typename Dtype>
 bool CpmDataTransformer<Dtype>::augmentation_flip(Mat& img_src, Mat& img_aug, Mat& mask_miss, Mat& mask_all, MetaData& meta) {
   bool doflip;
   if(this->param_.aug_way() == "rand"){
-    float dice = static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
+    float dice = 0.5; // static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
     doflip = (dice <= this->param_.flip_prob());
   }
   else if(this->param_.aug_way() == "table"){
@@ -2464,7 +2464,7 @@ float CpmDataTransformer<Dtype>::augmentation_rotate(Mat& img_src, Mat& img_dst,
 
   float degree;
   if(this->param_.aug_way() == "rand"){
-    float dice = static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
+    float dice = 0.5; //static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
     degree = (dice - 0.5) * 2 * this->param_.max_rotate_degree();
   }
   else if(this->param_.aug_way() == "table"){
