@@ -1009,13 +1009,14 @@ void CpmDataTransformer<Dtype>::generateLabelMap(Dtype* transformed_label, Mat& 
         }
       }
     }
-  } else if(meta.type == "detect") {
+  } // end if meta.type == "cpm"
+  else if(meta.type == "detect") {
     for(int a = 0; a < meta.numAnns; a++){
       if(!meta.iscrowd[a]){
         putGaussianMaps(transformed_label + 0*channelOffset, meta.bboxes[a], this->param_.stride(), grid_x, grid_y, this->param_.sigma()); //overloading this function
       }
     }
-  }
+  } // end if meta.type == "detect"
 
   LOG(INFO) << "do vis";
   //visualize
@@ -1994,9 +1995,7 @@ void CpmDataTransformer<Dtype>::ReadMetaData_bottomup(MetaData& meta, const stri
 }
 
 
-
-
-
+// subcall by Transform_bottomup
 template<typename Dtype>
 void CpmDataTransformer<Dtype>::Transform_bottomup(const Datum& datum, Dtype* transformed_data, Dtype* transformed_label, int cnt) {
 
@@ -2071,7 +2070,7 @@ void CpmDataTransformer<Dtype>::Transform_bottomup(const Datum& datum, Dtype* tr
       //}
 
       //if(mode == 6){
-        dindex = 5*offset + i*img.cols + j;
+        dindex = 5*offset + i*img.cols + j; // i-y, img.cols-grid_x, j-x
         if (has_uint8)
           d_element = static_cast<Dtype>(static_cast<uint8_t>(data[dindex]));
         else
@@ -2145,13 +2144,12 @@ void CpmDataTransformer<Dtype>::Transform_bottomup(const Datum& datum, Dtype* tr
 
     as.flip = augmentation_flip(img_temp3, img_aug, mask_miss_aug, mask_all_aug, meta);
     if(1 && this->param_.visualize()){
-      visualize(img_aug, meta, as, mask_all_aug);
-
-    imwrite("img_aug.jpg", img_aug);
-    Mat label_map = mask_miss_aug;
-    applyColorMap(label_map, label_map, COLORMAP_JET);
-    addWeighted(label_map, 0.5, img_aug, 0.5, 0.0, label_map);
-    imwrite("mask_miss_aug.jpg", label_map);
+        visualize(img_aug, meta, as, mask_all_aug);
+        imwrite("img_aug.jpg", img_aug);
+        Mat label_map = mask_miss_aug;
+        applyColorMap(label_map, label_map, COLORMAP_JET);
+        addWeighted(label_map, 0.5, img_aug, 0.5, 0.0, label_map);
+        imwrite("mask_miss_aug.jpg", label_map);
     }
     // if (mode > 4){
     if(!this->param_.analysis()){
@@ -2196,7 +2194,8 @@ void CpmDataTransformer<Dtype>::Transform_bottomup(const Datum& datum, Dtype* tr
     // label size is image size/ stride
     for (int g_y = 0; g_y < grid_y; g_y++){
       for (int g_x = 0; g_x < grid_x; g_x++){
-        for (int i = 0; i < np+1; i++){ // for first np+1 (=56) channels, fill all the same mask_miss in
+        for (int i = 0; i < np+1; i++){ 
+          // for first np+1 (=56) channels, fill all the same mask_miss in
           // To do
           // if (mode = 4){
           //   transformed_label[i*channelOffset + g_y*grid_x + g_x] = 1;
@@ -2778,6 +2777,7 @@ void CpmDataTransformer<Dtype>::visualizeLabelMap(const Dtype* transformed_label
 
 
 }
+// generateLabelMap call by "transform_bottomup"
 template<typename Dtype>
 void CpmDataTransformer<Dtype>::generateLabelMap(Dtype* transformed_label, Mat& img_aug, MetaData meta) {
   int rezX = img_aug.cols;
@@ -2826,8 +2826,7 @@ void CpmDataTransformer<Dtype>::generateLabelMap(Dtype* transformed_label, Mat& 
     for (int i = 0; i < 18; i++){
       Point2f center = meta.joint_self.joints[i];
       if(meta.joint_self.isVisible[i] <= 1){
-        putGaussianMaps(transformed_label + (i+np+1)*channelOffset, center, this->param_.stride(),
-                        grid_x, grid_y, this->param_.sigma()); //self
+        putGaussianMaps(transformed_label + (i+np+1)*channelOffset, center, this->param_.stride(), grid_x, grid_y, this->param_.sigma()); //self
       }
       for(int j = 0; j < meta.numOtherPeople; j++){ //for every other person
         Point2f center = meta.joint_others[j].joints[i];
@@ -2874,15 +2873,16 @@ void CpmDataTransformer<Dtype>::generateLabelMap(Dtype* transformed_label, Mat& 
       }
     }
     //LOG(INFO) << "background put";
-  }
-  else if (np == 56){ // fill last 57 of the 114 channels here: (np+1) channels are already filled
-                      //(19*2 x,y vec + 18+1 parts), but 114 channel to fill?
-
-    // vec maps
+  } // end if np == 37
+  else if (np == 56){ 
+      // fill last 57 of the 114 channels here: (np+1) channels are already filled
+      //(19*2 x,y vec + 18+1 parts), but 114 channel to fill?
+      // vec maps
     int mid_1[19] = {2, 9,  10, 2,  12, 13, 2, 3, 4, 3,  2, 6, 7, 6,  2, 1,  1,  15, 16};
     int mid_2[19] = {9, 10, 11, 12, 13, 14, 3, 4, 5, 17, 6, 7, 8, 18, 1, 15, 16, 17, 18};
     int thre = 1;
 
+    //1. put limb vector, 19 pairs, 38 channels
     for(int i = 0; i < 19; i++){
       // if (i>14){
       //   thre = 1;
@@ -2913,8 +2913,7 @@ void CpmDataTransformer<Dtype>::generateLabelMap(Dtype* transformed_label, Mat& 
       }
     }
 
-
-
+    //2. put joint gaussianmap, 18 keypoints
     for (int i = 0; i < 18; i++){
       Point2f center = meta.joint_self.joints[i];
       float peak_ratio = 1;
@@ -2939,18 +2938,18 @@ void CpmDataTransformer<Dtype>::generateLabelMap(Dtype* transformed_label, Mat& 
       }
     }
 
-    if(!this->param_.per_part_scale()){
+    if(!this->param_.per_part_scale()){ // per_part_scale == false
       //put background channel
       for (int g_y = 0; g_y < grid_y; g_y++){
         for (int g_x = 0; g_x < grid_x; g_x++){
           float maximum = 0;
           for (int i = np+1+38; i < np+1+38+18; i++){
             maximum = (maximum > transformed_label[i*channelOffset + g_y*grid_x + g_x]) ? maximum : transformed_label[i*channelOffset + g_y*grid_x + g_x];
-          }
+          } // find the maximum of all the joint gaussian heatmap
           transformed_label[(2*np+1)*channelOffset + g_y*grid_x + g_x] = max(1.0-maximum, 0.0); // last ch
         }
       }
-    } else {
+    } else { // per_part_scale == true
       for(int i = 0; i < 18; i++){
         Point2f center = meta.joint_self.joints[i];
         float scale_normalize = meta.scale_self - 0.6; // scale_self will be around 0
