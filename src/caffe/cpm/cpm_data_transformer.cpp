@@ -1334,7 +1334,8 @@ template <typename Dtype>
 void CpmDataTransformer<Dtype>::dumpEverything(Dtype* transformed_data, Dtype* transformed_label, MetaData meta){
 
   char filename[100];
-  sprintf(filename, "transformed_data_%04d_%02d", meta.annolist_index, meta.people_index);
+  // sprintf(filename, "transformed_data_%04d_%02d", meta.annolist_index, meta.people_index);
+  sprintf(filename, "transformed_data_%s_%d_%d", meta.file_name.c_str(), int(meta.objpos.x), int(meta.objpos.y));
   ofstream myfile;
   myfile.open(filename);
   int data_length = this->param_.crop_size_y() * this->param_.crop_size_x() * 4;
@@ -1346,7 +1347,8 @@ void CpmDataTransformer<Dtype>::dumpEverything(Dtype* transformed_data, Dtype* t
   //LOG(INFO) << "after copy data: " << filename << "  " << data_length;
   myfile.close();
 
-  sprintf(filename, "transformed_label_%04d_%02d", meta.annolist_index, meta.people_index);
+  // sprintf(filename, "transformed_label_%04d_%02d", meta.annolist_index, meta.people_index);
+  sprintf(filename, "transformed_label_%s_%d_%d", meta.file_name.c_str(), int(meta.objpos.x), int(meta.objpos.y));
   myfile.open(filename);
   int label_length = this->param_.crop_size_y() * this->param_.crop_size_x() / this->param_.stride() / this->param_.stride() * (this->param_.num_parts()+1);
   for(int i = 0; i<label_length; i++){
@@ -2142,10 +2144,12 @@ void CpmDataTransformer<Dtype>::Transform_bottomup(const Datum& datum, Dtype* tr
   int offset1 = datum_width;
   int stride = this->param_.stride();
   ReadMetaData_bottomup(meta, data, offset3, offset1);
+  char name[100];
+  sprintf(name, "COCO_train_%012d.jpg", meta.annolist_index);
+  meta.file_name = name;
   /**
   LOG(INFO) << " testing image save mask_miss & mask_all" ;
   static int count = 0; count ++;
-  char name[100];
   sprintf(name, "mask_COCO_train_%012d.jpg", meta.annolist_index);
   imwrite(name, mask_miss);
   sprintf(name, "%d_all.jpg", meta.annolist_index);
@@ -2278,9 +2282,9 @@ void CpmDataTransformer<Dtype>::Transform_bottomup(const Datum& datum, Dtype* tr
     }
     VLOG(3) << "After generating label map";
     // starts to visualize everything (transformed_data in 4 ch, label) fed into conv1
-    //if(this->param_.visualize()){
-    //  dumpEverything(transformed_data, transformed_label, meta);
-    //}
+    if(this->param_.visualize()){
+      dumpEverything(transformed_data, transformed_label, meta);
+    }
   }
 }
 

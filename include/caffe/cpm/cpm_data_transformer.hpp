@@ -48,7 +48,7 @@ protected:
 
   struct MetaData {
     string type; //"cpm" or "detect"
-
+    string file_name;
     string dataset;
     Size img_size;
     bool isValidation;
