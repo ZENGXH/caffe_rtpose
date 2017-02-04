@@ -89,6 +89,8 @@ protected:
   bool is_table_set;
   vector<vector<float> > aug_degs;
   vector<vector<int> > aug_flips;
+  vector<string> joint_name_vec_;
+  vector<std::pair<int, int> >limb_pair_vec;
   std::ofstream ofs_analysis;
 
   void Transform_CPM(const Datum& datum, Dtype* transformed_data, Dtype* transformed_label, Dtype* mask, int cnt);
@@ -133,6 +135,7 @@ protected:
   //utility
   void DecodeFloats(const string& data, size_t idx, float* pf, size_t len);
   string DecodeString(const string& data, size_t idx);
+  void visualizeLabelMap(const Dtype* transformed_label, Mat& img_aug, const string& file_name, const std::vector<pair<int, int> >& limb_pair_vec, const int& np);
   void writeAugAnalysis(MetaData& meta);
 };
 

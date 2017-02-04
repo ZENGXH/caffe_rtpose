@@ -32,6 +32,39 @@ CpmDataTransformer<Dtype>::CpmDataTransformer(const TransformationParameter& par
   is_table_set = false;
 
   ofs_analysis.open("analysis.log", ofstream::out);
+    if(np == 56){
+            joint_name_vec_.push_back("Nose");
+            joint_name_vec_.push_back("Neck");
+            joint_name_vec_.push_back("RShoulder");
+            joint_name_vec_.push_back("RElbow");
+            joint_name_vec_.push_back("RWrist");
+            joint_name_vec_.push_back("LShoulder");
+            joint_name_vec_.push_back("LElbow");
+            joint_name_vec_.push_back("LWrist");
+            joint_name_vec_.push_back("RHip");
+            joint_name_vec_.push_back("RKnee");
+            joint_name_vec_.push_back("RAnkle");
+            joint_name_vec_.push_back("LHip");
+            joint_name_vec_.push_back("LKnee");
+            joint_name_vec_.push_back("LAnkle");
+            joint_name_vec_.push_back("REye");
+            joint_name_vec_.push_back("LEye");
+            joint_name_vec_.push_back("REar");
+            joint_name_vec_.push_back("LEar");
+            joint_name_vec_.push_back("Bkg");
+            /**
+    int COCO_to_ours_1[18] = {1,6, 7,9,11, 6,8,10, 13,15,17, 12,14,16, 3,2,5,4};
+    for(int i = 0; i < 18; i ++)
+        joint_name_vec_temp[i] = joint_name_vec_[COCO_to_ours_1[i] - 1];
+    joint_name_vec_temp[1] = "Neck";
+    joint_name_vec_temp[18] = "Bkg";
+    joint_name_vec_ = joint_name_vec_temp;
+   **/
+    int mid_1[19] = {2, 9,  10, 2,  12, 13, 2, 3, 4, 3,  2, 6, 7, 6,  2, 1,  1,  15, 16};
+    int mid_2[19] = {9, 10, 11, 12, 13, 14, 3, 4, 5, 17, 6, 7, 8, 18, 1, 15, 16, 17, 18};
+    for(int i = 0; i < 19; i ++)
+        limb_pair_vec.push_back(std::make_pair(mid_1[i]-1, mid_2[i]-1));
+    }
 }
 
 template<typename Dtype>
@@ -1333,50 +1366,57 @@ void CpmDataTransformer<Dtype>::clahe(Mat& bgr_image, int tileSize, int clipLimi
 template <typename Dtype>
 void CpmDataTransformer<Dtype>::dumpEverything(Dtype* transformed_data, Dtype* transformed_label, MetaData meta){
 
-  char filename[100];
-  // sprintf(filename, "transformed_data_%04d_%02d", meta.annolist_index, meta.people_index);
-  sprintf(filename, "transformed_data_%s_%d_%d", meta.file_name.c_str(), int(meta.objpos.x), int(meta.objpos.y));
-  ofstream myfile;
-  myfile.open(filename);
-  int data_length = this->param_.crop_size_y() * this->param_.crop_size_x() * 4;
+    char filename[100];
+    // sprintf(filename, "transformed_data_%04d_%02d", meta.annolist_index, meta.people_index);
+    sprintf(filename, "transformed_data_%s_%d_%d", meta.file_name.c_str(), int(meta.objpos.x), int(meta.objpos.y));
+    int break_length = this->param_.crop_size_y();
+    ofstream myfile;
+    myfile.open(filename);
+    int data_length = this->param_.crop_size_y() * this->param_.crop_size_x() *3; 
 
-  //LOG(INFO) << "before copy data: " << filename << "  " << data_length;
-  for(int i = 0; i<data_length; i++){
-    myfile << transformed_data[i] << " ";
-  }
-  //LOG(INFO) << "after copy data: " << filename << "  " << data_length;
-  myfile.close();
+    //LOG(INFO) << "before copy data: " << filename << "  " << data_length;
+    for(int i = 0; i<data_length; i++){
+        if(i % break_length == 0) myfile << "\n";
+        myfile << transformed_data[i] << " ";
+    }
+    //LOG(INFO) << "after copy data: " << filename << "  " << data_length;
+    myfile.close();
 
-  // sprintf(filename, "transformed_label_%04d_%02d", meta.annolist_index, meta.people_index);
-  int joint_length = this->param_.crop_size_y() * this->param_.crop_size_x() / this->param_.stride() / this->param_.stride() * (18);
-  int limb_length = this->param_.crop_size_y() * this->param_.crop_size_x() / this->param_.stride() / this->param_.stride() * (38);
-  int bg_length = this->param_.crop_size_y() * this->param_.crop_size_x() / this->param_.stride() / this->param_.stride() * (1);
+    // sprintf(filename, "transformed_label_%04d_%02d", meta.annolist_index, meta.people_index);
+    int joint_length = this->param_.crop_size_y() * this->param_.crop_size_x() / this->param_.stride() / this->param_.stride() * (18);
+    int limb_length = this->param_.crop_size_y() * this->param_.crop_size_x() / this->param_.stride() / this->param_.stride() * (38);
+    int bg_length = this->param_.crop_size_y() * this->param_.crop_size_x() / this->param_.stride() / this->param_.stride() * (1);
+    int label_length = this->param_.crop_size_y() * this->param_.crop_size_x() / this->param_.stride() / this->param_.stride() * (this->param_.num_parts()+1);
+    int offset = this->param_.crop_size_x() / this->param_.stride();
+    offset *= offset;
+    int offset_joint = label_length + limb_length;
+    int offset_limb = label_length;
+    int offset_bg = label_length + limb_length + joint_length;
 
-  sprintf(filename, "transformed_label_joint_%s_%d_%d", meta.file_name.c_str(), int(meta.objpos.x), int(meta.objpos.y));
-  LOG(INFO) << "dump " << filename;
-  myfile.open(filename);
-  int label_length = this->param_.crop_size_y() * this->param_.crop_size_x() / this->param_.stride() / this->param_.stride() * (this->param_.num_parts()+1);
-  for(int i = 0; i<joint_length; i++){
-    myfile << transformed_label[label_length + i + limb_length] << " ";
-  }
-  myfile.close();
+    for(int i = 0; i < 18; i++){
+        sprintf(filename, "transformed_label_joint_%s_%d_%d-%s", meta.file_name.c_str(), int(meta.objpos.x), int(meta.objpos.y), joint_name_vec_[i].c_str());
+        myfile.open(filename);
+        for(int j = 0; j < offset; j ++)
+            myfile << transformed_label[i*offset + j + offset_joint] << " ";
+        myfile.close();
+    }
 
-  sprintf(filename, "transformed_label_limb_%s_%d_%d", meta.file_name.c_str(), int(meta.objpos.x), int(meta.objpos.y));
-  LOG(INFO) << "dump " << filename;
-  myfile.open(filename);
-  for(int i = 0; i < limb_length; i++){
-    myfile << transformed_label[label_length + i] << " ";
-  }
-  myfile.close();
+    // limb
+    for(int i = 0; i < 19; i++){
+        sprintf(filename, "transformed_label_limb_%s_%d_%d_%s-%s", meta.file_name.c_str(), int(meta.objpos.x), int(meta.objpos.y), joint_name_vec_[limb_pair_vec[i].first].c_str(), joint_name_vec_[limb_pair_vec[i].second].c_str());
+        myfile.open(filename);
+        for(int j = 0; j < 2*offset; j ++)
+            myfile << transformed_label[i*offset + j + offset_limb] << " ";
+        myfile.close();
+    }
 
-  sprintf(filename, "transformed_label_bg_%s_%d_%d", meta.file_name.c_str(), int(meta.objpos.x), int(meta.objpos.y));
-  LOG(INFO) << "dump " << filename;
-  myfile.open(filename);
-  for(int i = 0; i < bg_length; i++){
-    myfile << transformed_label[label_length + i + limb_length + joint_length] << " ";
-  }
-  myfile.close();
-
+    // bg
+    sprintf(filename, "transformed_label_bg_%s_%d_%d", meta.file_name.c_str(), int(meta.objpos.x), int(meta.objpos.y));
+    myfile.open(filename);
+    for(int i = 0; i < bg_length; i++){
+        myfile << transformed_label[label_length + i + joint_length] << " ";
+    }
+    myfile.close();
 }
 
 template<typename Dtype>
@@ -2178,12 +2218,12 @@ void CpmDataTransformer<Dtype>::Transform_bottomup(const Datum& datum, Dtype* tr
   imwrite(name, mask_all);
   sprintf(name, "COCO_train_%012d.jpg", meta.annolist_index);
   imwrite(name, img);
-  
+  bool vis_aug = 0;
   if(this->param_.transform_body_joint()) // we expect to transform body joints, and not to transform hand joints
     TransformMetaJoints(meta); //when np = 56, np_in_lmdb becomes 18 from 17 here
 
   //visualize original
-  if(1 && this->param_.visualize()) {
+  if(vis_aug && this->param_.visualize()) {
     visualize(img, meta, as, mask_all);
   }
 
@@ -2202,15 +2242,15 @@ void CpmDataTransformer<Dtype>::Transform_bottomup(const Datum& datum, Dtype* tr
     //LOG(INFO) << meta.joint_self.joints.size();
     //LOG(INFO) << meta.joint_self.joints[0];
     as.degree = augmentation_rotate(img_temp1, img_temp2, mask_miss, mask_all, meta);
-    if(1 && this->param_.visualize())
+    if(vis_aug && this->param_.visualize())
       visualize(img_temp2, meta, as, mask_all);
 
     as.crop = augmentation_croppad(img_temp2, img_temp3, mask_miss, mask_miss_aug, mask_all, mask_all_aug, meta);
-    if(1 && this->param_.visualize())
+    if(vis_aug && this->param_.visualize())
       visualize(img_temp3, meta, as, mask_all_aug);
 
     as.flip = augmentation_flip(img_temp3, img_aug, mask_miss_aug, mask_all_aug, meta);
-    if(1 && this->param_.visualize()){
+    if(vis_aug && this->param_.visualize()){
         visualize(img_aug, meta, as, mask_all_aug);
         imwrite("img_aug.jpg", img_aug);
         Mat label_map = mask_miss_aug;
@@ -2300,11 +2340,12 @@ void CpmDataTransformer<Dtype>::Transform_bottomup(const Datum& datum, Dtype* tr
     VLOG(3) << "image transformation done!";
     generateLabelMap(transformed_label, img_aug, meta);
     if(1 & this->param_.visualize()){ 
-        visualizeLabelMap(transformed_label, img_aug); 
+        // visualizeLabelMap(transformed_label, img_aug); 
     }
     VLOG(3) << "After generating label map";
     // starts to visualize everything (transformed_data in 4 ch, label) fed into conv1
     if(this->param_.visualize()){
+      visualizeLabelMap(transformed_label, img_aug, meta.file_name, limb_pair_vec, joint_name_vec_.size());
       dumpEverything(transformed_data, transformed_label, meta);
     }
   }
@@ -2538,8 +2579,8 @@ float CpmDataTransformer<Dtype>::augmentation_rotate(Mat& img_src, Mat& img_dst,
 template<typename Dtype>
 void CpmDataTransformer<Dtype>::putVecPeaks(Dtype* entryX, Dtype* entryY, Mat& count, Point2f centerA, Point2f centerB, int stride, int grid_x, int grid_y, float sigma, int thre){
   //int thre = 4;
-  centerB = centerB * 0.125;
-  centerA = centerA * 0.125;
+  centerB = centerB * (1.0/stride);
+  centerA = centerA * (1.0/stride);
   Point2f bc = centerB - centerA;
   float norm_bc = sqrt(bc.x*bc.x + bc.y*bc.y);
   bc.x = bc.x / norm_bc;
@@ -2579,8 +2620,8 @@ void CpmDataTransformer<Dtype>::putVecPeaks(Dtype* entryX, Dtype* entryY, Mat& c
 template<typename Dtype>
 void CpmDataTransformer<Dtype>::putVecMaps(Dtype* entryX, Dtype* entryY, Mat& count, Point2f centerA, Point2f centerB, int stride, int grid_x, int grid_y, float sigma, int thre, float peak_ratio){
   //int thre = 4;
-  centerB = centerB*0.125;
-  centerA = centerA*0.125;
+  centerB = centerB*(1.0/stride);
+  centerA = centerA*(1.0/stride);
   Point2f bc = centerB - centerA;
   int min_x = std::max( int(round(std::min(centerA.x, centerB.x)-thre)), 0);
   int max_x = std::min( int(round(std::max(centerA.x, centerB.x)+thre)), grid_x);
@@ -2898,8 +2939,7 @@ void CpmDataTransformer<Dtype>::generateLabelMap(Dtype* transformed_label, Mat& 
       for(int j = 0; j < meta.numOtherPeople; j++){ //for every other person
         Point2f center = meta.joint_others[j].joints[i];
         if(meta.joint_others[j].isVisible[i] <= 1){
-          putGaussianMaps(transformed_label + (i+np+1)*channelOffset, center, this->param_.stride(),
-                          grid_x, grid_y, this->param_.sigma());
+          putGaussianMaps(transformed_label + (i+np+1)*channelOffset, center, this->param_.stride(), grid_x, grid_y, this->param_.sigma());
         }
       }
     }
@@ -2932,7 +2972,7 @@ void CpmDataTransformer<Dtype>::generateLabelMap(Dtype* transformed_label, Mat& 
     for (int g_y = 0; g_y < grid_y; g_y++){
       for (int g_x = 0; g_x < grid_x; g_x++){
         float maximum = 0;
-        //second background channel
+        //second backgacround ehannel
         for (int i = np+1; i < 2*np+1; i++){
           maximum = (maximum > transformed_label[i*channelOffset + g_y*grid_x + g_x]) ? maximum : transformed_label[i*channelOffset + g_y*grid_x + g_x];
         }
@@ -2978,6 +3018,37 @@ void CpmDataTransformer<Dtype>::generateLabelMap(Dtype* transformed_label, Mat& 
           putVecMaps(transformed_label + (np+1+2*i)*channelOffset, transformed_label + (np+1+(2*i+1))*channelOffset, count, jo2.joints[mid_1[i]-1], jo2.joints[mid_2[i]-1], this->param_.stride(), grid_x, grid_y, this->param_.sigma(), thre, peak_ratio); //self
         }
       }
+
+      {
+        char imagename[190];
+                Mat paf_map;
+                paf_map = Mat::zeros(grid_y, grid_x, CV_8UC1);
+                //int MPI_index = MPI_to_ours[i];
+                //Point2f center = meta.joint_self.joints[MPI_index];
+                for (int g_y = 0; g_y < grid_y; g_y++){
+                    //printf("\n");
+                    for (int g_x = 0; g_x < grid_x; g_x++){
+                        int index_x = (np+1+2*i)*channelOffset + g_y*grid_x + g_x;
+                        int index_y = (np+1+2*i+1)*channelOffset + g_y*grid_x + g_x;
+                        paf_map.at<uchar>(g_y,g_x) += 
+                            (float)((transformed_label[index_x]/transformed_label[index_y])*255);
+                    }
+                }
+                Mat img_aug_resize;
+                resize(img_aug, img_aug_resize, Size(), 1.0/stride, 1.0/stride, INTER_CUBIC);
+                LOG(INFO) << "resize img_aug " << img_aug.cols << " with stride " << stride << " to " << img_aug_resize.cols << " vs " << paf_map.cols;
+                applyColorMap(paf_map, paf_map, COLORMAP_JET);
+                addWeighted(paf_map, 0.5, img_aug_resize, 0.5, 0.0, paf_map);
+                LOG(INFO) << "add weight";
+                static int count; count ++;
+                sprintf(imagename, "ac%d_limb%d_%s-%s-%s", count, i, joint_name_vec_[limb_pair_vec[i].first].c_str(), joint_name_vec_[limb_pair_vec[i].second].c_str(), meta.file_name.c_str());
+                LOG(INFO) << imagename;
+                VLOG(3) << "<save> LIMB vis - filename is " << imagename;
+                imwrite(imagename, paf_map);
+ 
+      
+      }
+
     }
 
     //2. put joint gaussianmap, 18 keypoints
@@ -3108,7 +3179,7 @@ void CpmDataTransformer<Dtype>::generateLabelMap(Dtype* transformed_label, Mat& 
     // for (int g_y = 0; g_y < grid_y; g_y++){
     //   //printf("\n");
     //   for (int g_x = 0; g_x < grid_x; g_x++){
-    //     label_map.at<uchar>(g_y,g_x) = (int)(transformed_label[np*channelOffset + g_y*grid_x + g_x]*255);
+    //     label_map.at<uchar>g_y,g_x) = (int)(transformed_label[np*channelOffset + g_y*grid_x + g_x]*255);
     //     //printf("%f ", transformed_label_entry[g_y*grid_x + g_x]*255);
     //   }
     // }
@@ -3126,7 +3197,96 @@ void CpmDataTransformer<Dtype>::generateLabelMap(Dtype* transformed_label, Mat& 
     // imwrite(imagename, label_map);
   }
 }
+    template<typename Dtype>
+        void CpmDataTransformer<Dtype>::visualizeLabelMap(const Dtype* transformed_label, Mat& img_aug, const string& file_name, const std::vector<pair<int, int> >& limb_pair_vec, const int& np){
+            int rezX = img_aug.cols;
+            int rezY = img_aug.rows;
+            int stride = this->param_.stride();
+            int grid_x = rezX / stride;
+            int grid_y = rezY / stride;
+            int channelOffset = grid_y * grid_x;
+            int num_bg_map = 1;
+            Mat img_aug_resize;
+            resize(img_aug, img_aug_resize, Size(grid_x, grid_y), 0, 0, INTER_LINEAR);
 
+            int binmapOffset = (18+1+38) * channelOffset;
+            // plot L1, 14 joint map
+            char imagename [100];
+            static int count = 0;
+            for(int i = 0; i < joint_name_vec_.size(); i++){      
+                Mat label_map;
+                label_map = Mat::zeros(grid_y, grid_x, CV_8UC1);
+                //int MPI_index = MPI_to_ours[i];
+                //Point2f center = meta.joint_self.joints[MPI_index];
+                for (int g_y = 0; g_y < grid_y; g_y++){
+                    for (int g_x = 0; g_x < grid_x; g_x++){
+                        label_map.at<uchar>(g_y,g_x) = (int)(transformed_label[binmapOffset + (38 + i)*channelOffset + g_y*grid_x + g_x]*255);
+                        //printf("%f ", transformed_label_entry[g_y*grid_x + g_x]*255);
+                    }
+                }
+
+                applyColorMap(label_map, label_map, COLORMAP_JET);
+                VLOG(3) << "[addWeighted] size label_map " 
+                    << label_map.cols << "," << label_map.rows 
+                    << " and aug_img_resize"
+                    << img_aug_resize.cols << ", " << img_aug_resize.rows;
+
+                addWeighted(label_map, 0.5, img_aug_resize, 0.5, 0.0, label_map);
+                VLOG(3) << "[addWeighted] done"; 
+                sprintf(imagename, "c%d_joint%d_%s-%s", count, i, joint_name_vec_[i].c_str(), file_name.c_str());
+                LOG(INFO) << imagename;
+                // resize(label_map, label_map, Size(46, 46), 0, 0, INTER_LINEAR);
+                imwrite(imagename, label_map);
+            } 
+
+            // draw limbs_x
+            for(int i = 0; i < limb_pair_vec.size(); i++){
+                Mat paf_map;
+                paf_map = Mat::zeros(grid_y, grid_x, CV_8UC1);
+                //int MPI_index = MPI_to_ours[i];
+                //Point2f center = meta.joint_self.joints[MPI_index];
+                for (int g_y = 0; g_y < grid_y; g_y++){
+                    //printf("\n");
+                    for (int g_x = 0; g_x < grid_x; g_x++){
+                        int index_x = binmapOffset+(2*i)*channelOffset + g_y*grid_x + g_x;
+                        int index_y = binmapOffset+(2*i+1)*channelOffset + g_y*grid_x + g_x;
+                        if(transformed_label[index_x] == 0)
+                            continue;
+                        paf_map.at<uchar>(g_y,g_x) += 
+                            (int)((transformed_label[index_x]/transformed_label[index_y])*255);
+                    }
+                }
+                applyColorMap(paf_map, paf_map, COLORMAP_JET);
+                addWeighted(paf_map, 0.5, img_aug_resize, 0.5, 0.0, paf_map);
+                sprintf(imagename, "c%d_limb%d_%s-%s-%s", count, i, joint_name_vec_[limb_pair_vec[i].first].c_str(), joint_name_vec_[limb_pair_vec[i].second].c_str(), file_name.c_str());
+                LOG(INFO) << imagename;
+                VLOG(3) << "<save> LIMB vis - filename is " << imagename;
+                imwrite(imagename, paf_map);
+            }
+ 
+            // background
+            for(int i = 0; i < 1; i ++){
+            // draw limbs_x
+                Mat paf_map;
+                paf_map = Mat::zeros(grid_y, grid_x, CV_8UC1);
+                //int MPI_index = MPI_to_ours[i];
+                //Point2f center = meta.joint_self.joints[MPI_index];
+                for (int g_y = 0; g_y < grid_y; g_y++){
+                    for (int g_x = 0; g_x < grid_x; g_x++){
+                        paf_map.at<uchar>(g_y,g_x) = (int)(transformed_label[binmapOffset + (38 + 18)*channelOffset + g_y*grid_x + g_x]*255);
+                    }
+                }
+
+                applyColorMap(paf_map, paf_map, COLORMAP_JET);
+                addWeighted(paf_map, 0.5, img_aug_resize, 0.5, 0.0, paf_map);
+                sprintf(imagename, "c%d_bg%d_%s", count, i, file_name.c_str());
+                LOG(INFO) << imagename;
+                VLOG(3) << "<save> LIMB vis - filename is " << imagename;
+                imwrite(imagename, paf_map);
+            }          
+            count ++;
+
+        }
 template<typename Dtype>
 void CpmDataTransformer<Dtype>::writeAugAnalysis(MetaData& meta){
   //self
