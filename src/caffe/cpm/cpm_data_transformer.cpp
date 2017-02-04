@@ -1369,7 +1369,7 @@ void CpmDataTransformer<Dtype>::dumpEverything(Dtype* transformed_data, Dtype* t
   sprintf(filename, "transformed_label_bg_%s_%d_%d", meta.file_name.c_str(), int(meta.objpos.x), int(meta.objpos.y));
   myfile.open(filename);
   for(int i = 0; i < 1; i++){
-    myfile << transformed_label[label_length + i + limb_length + joint_length + 1] << " ";
+    myfile << transformed_label[label_length + i + limb_length + joint_length] << " ";
   }
   myfile.close();
 
