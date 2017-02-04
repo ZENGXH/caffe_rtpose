@@ -1350,8 +1350,10 @@ void CpmDataTransformer<Dtype>::dumpEverything(Dtype* transformed_data, Dtype* t
   // sprintf(filename, "transformed_label_%04d_%02d", meta.annolist_index, meta.people_index);
   int joint_length = this->param_.crop_size_y() * this->param_.crop_size_x() / this->param_.stride() / this->param_.stride() * (18);
   int limb_length = this->param_.crop_size_y() * this->param_.crop_size_x() / this->param_.stride() / this->param_.stride() * (38);
+  int bg_length = this->param_.crop_size_y() * this->param_.crop_size_x() / this->param_.stride() / this->param_.stride() * (1);
 
   sprintf(filename, "transformed_label_joint_%s_%d_%d", meta.file_name.c_str(), int(meta.objpos.x), int(meta.objpos.y));
+  LOG(INFO) << "dump " << filename;
   myfile.open(filename);
   int label_length = this->param_.crop_size_y() * this->param_.crop_size_x() / this->param_.stride() / this->param_.stride() * (this->param_.num_parts()+1);
   for(int i = 0; i<joint_length; i++){
@@ -1360,6 +1362,7 @@ void CpmDataTransformer<Dtype>::dumpEverything(Dtype* transformed_data, Dtype* t
   myfile.close();
 
   sprintf(filename, "transformed_label_limb_%s_%d_%d", meta.file_name.c_str(), int(meta.objpos.x), int(meta.objpos.y));
+  LOG(INFO) << "dump " << filename;
   myfile.open(filename);
   for(int i = 0; i < limb_length; i++){
     myfile << transformed_label[label_length + i] << " ";
@@ -1367,8 +1370,9 @@ void CpmDataTransformer<Dtype>::dumpEverything(Dtype* transformed_data, Dtype* t
   myfile.close();
 
   sprintf(filename, "transformed_label_bg_%s_%d_%d", meta.file_name.c_str(), int(meta.objpos.x), int(meta.objpos.y));
+  LOG(INFO) << "dump " << filename;
   myfile.open(filename);
-  for(int i = 0; i < 1; i++){
+  for(int i = 0; i < bg_length; i++){
     myfile << transformed_label[label_length + i + limb_length + joint_length] << " ";
   }
   myfile.close();
