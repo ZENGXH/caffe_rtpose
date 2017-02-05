@@ -362,6 +362,7 @@ void CpmDataTransformer<Dtype>::TransformJoints(Joints& j) {
       jo.joints[i] = (j.joints[COCO_to_ours_1[i]-1] + j.joints[COCO_to_ours_2[i]-1]) * 0.5;
       if(j.isVisible[COCO_to_ours_1[i]-1]==2 || j.isVisible[COCO_to_ours_2[i]-1]==2){
         jo.isVisible[i] = 2;
+        jo.joints[i] = Point2f(0, 0); 
       }
       else if(j.isVisible[COCO_to_ours_1[i]-1]==3 || j.isVisible[COCO_to_ours_2[i]-1]==3){
         jo.isVisible[i] = 3;
@@ -1406,7 +1407,7 @@ void CpmDataTransformer<Dtype>::dumpEverything(Dtype* transformed_data, Dtype* t
         sprintf(filename, "transformed_label_limb_%s_%d_%d_%s-%s", meta.file_name.c_str(), int(meta.objpos.x), int(meta.objpos.y), joint_name_vec_[limb_pair_vec[i].first].c_str(), joint_name_vec_[limb_pair_vec[i].second].c_str());
         myfile.open(filename);
         for(int j = 0; j < 2*offset; j ++)
-            myfile << transformed_label[i*offset + j + offset_limb] << " ";
+            myfile << transformed_label[i*2*offset + j + offset_limb] << " ";
         myfile.close();
     }
 
@@ -1414,7 +1415,7 @@ void CpmDataTransformer<Dtype>::dumpEverything(Dtype* transformed_data, Dtype* t
     sprintf(filename, "transformed_label_bg_%s_%d_%d", meta.file_name.c_str(), int(meta.objpos.x), int(meta.objpos.y));
     myfile.open(filename);
     for(int i = 0; i < bg_length; i++){
-        myfile << transformed_label[label_length + i + joint_length] << " ";
+        myfile << transformed_label[label_length + i + offset_bg] << " ";
     }
     myfile.close();
 }
@@ -2051,7 +2052,10 @@ void CpmDataTransformer<Dtype>::ReadMetaData_bottomup(MetaData& meta, const stri
       //LOG(INFO) << meta.joint_others[p].joints[i].x << " " << meta.joint_others[p].joints[i].y << " " << meta.joint_others[p].isVisible[i];
     }
   }
-
+  // commend on label of visible of joint:
+  // 0: occur/hide
+  // 1: normal
+  // 2: miss label
   LOG(INFO) << "Meta read done.";
   ofstream myfile;
   myfile.open("COCO_train_list.txt", ios::out | ios::app);
@@ -2061,30 +2065,50 @@ void CpmDataTransformer<Dtype>::ReadMetaData_bottomup(MetaData& meta, const stri
   myfile << filename << " ";
   myfile << 1 + meta.numOtherPeople << " " ;
   // myfile << meta.bbox.left << " " << meta.bbox.top << " " << meta.bbox.width << " " << meta.bbox.height << " ";
-  myfile << meta.objpos.x + 1 << " " << meta.objpos.y + 1<< " " << meta.bbox.width << " " << meta.bbox.height << " ";
-  TransformMetaJoints(meta); 
+  myfile 
+      << meta.objpos.x + 1 << " " 
+      << meta.objpos.y + 1 << " " 
+      << meta.bbox.width << " " 
+      << meta.bbox.height << " ";
+  MetaData meta_temp = meta;
+  TransformMetaJoints(meta_temp); 
   int left = 6;
   int right = 7;
   for(int i=0; i<np_in_lmdb; i++){
-    // c++; myfile << "(" << c << ") ";
+      // c++; myfile << "(" << c << ") ";
+      if(meta_temp.joint_self.isVisible[i] == 2) {
+          myfile  << 0 << " " << 0 << " " << 0 << " ";
+          continue;
+      }else if(meta_temp.joint_self.isVisible[i] == 0 &&
+              meta_temp.joint_self.joints[i].x != 0 &&
+              meta_temp.joint_self.joints[i].y != 0 )
+          meta_temp.joint_self.isVisible[i] = 1;
     myfile 
-        << meta.joint_self.joints[i].x + 1 << " "
-        << meta.joint_self.joints[i].y + 1<< " "  
-        << meta.joint_self.isVisible[i] << " ";
+        // << joint_name_vec_[i] << " "
+        << meta_temp.joint_self.joints[i].x - 1 << " "
+        << meta_temp.joint_self.joints[i].y - 1<< " "  
+        << meta_temp.joint_self.isVisible[i] << " ";
   }
 
-  for(int p=0; p<meta.numOtherPeople; p++){
+  for(int p=0; p<meta_temp.numOtherPeople; p++){
       // c = 0;
-      myfile << meta.objpos_other[p].x + 1 << " "
-          << meta.objpos_other[p].y + 1 << " "
-          << meta.bboxes_other[p].width << " "
-          << meta.bboxes_other[p].height << " ";
+      myfile 
+          << meta_temp.objpos_other[p].x - 1 << " "
+          << meta_temp.objpos_other[p].y - 1 << " "
+          << meta_temp.bboxes_other[p].width << " "
+          << meta_temp.bboxes_other[p].height << " ";
     for(int i=0; i<np_in_lmdb; i++){
-    // c++; myfile << "(" << c << ") ";
+        if(meta_temp.joint_others[p].isVisible[i] == 2){
+            myfile  << 0 << " " << 0 << " " << 0 << " ";
+            continue;
+        }else if(meta_temp.joint_others[p].isVisible[i] == 0 &&
+                meta_temp.joint_others[p].joints[i].x != 0 &&
+                meta_temp.joint_others[p].joints[i].y != 0)
+            meta_temp.joint_others[p].isVisible[i] = 1;
           myfile 
-              << meta.joint_others[p].joints[i].x + 1<< " " 
-              << meta.joint_others[p].joints[i].y + 1<< " "
-              << meta.joint_others[p].isVisible[i] << " " ;
+              << meta_temp.joint_others[p].joints[i].x - 1<< " " 
+              << meta_temp.joint_others[p].joints[i].y - 1<< " "
+              << meta_temp.joint_others[p].isVisible[i] << " " ;
       }
   }
   myfile << "\n";
@@ -3019,6 +3043,7 @@ void CpmDataTransformer<Dtype>::generateLabelMap(Dtype* transformed_label, Mat& 
         }
       }
 
+      /**
       {
         char imagename[190];
                 Mat paf_map;
@@ -3047,7 +3072,7 @@ void CpmDataTransformer<Dtype>::generateLabelMap(Dtype* transformed_label, Mat& 
                 imwrite(imagename, paf_map);
  
       
-      }
+      }**/
 
     }
 
