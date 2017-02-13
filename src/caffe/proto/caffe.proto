@@ -469,6 +469,7 @@ message TransformationParameter {
   optional bool use_segmentation_scale = 42 [default = false];
   optional bool selective_scale = 43 [default = false];
   optional bool per_part_scale = 44 [default = false];
+  optional float fix_dice = 45 [default = -1];
 }
 
 // Message that stores parameters shared by loss layers
