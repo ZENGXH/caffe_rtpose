@@ -1367,58 +1367,67 @@ void CpmDataTransformer<Dtype>::clahe(Mat& bgr_image, int tileSize, int clipLimi
 template <typename Dtype>
 void CpmDataTransformer<Dtype>::dumpEverything(Dtype* transformed_data, Dtype* transformed_label, MetaData meta){
 
-    char filename[100];
-    // sprintf(filename, "transformed_data_%04d_%02d", meta.annolist_index, meta.people_index);
-    sprintf(filename, "transformed_data_%s_%d_%d", meta.file_name.c_str(), int(meta.objpos.x), int(meta.objpos.y));
-    int break_length = this->param_.crop_size_y();
-    ofstream myfile;
-    myfile.open(filename);
-    int data_length = this->param_.crop_size_y() * this->param_.crop_size_x() *3; 
+                        char filename[100];
+                        // sprintf(filename, "transformed_data_%04d_%02d", meta.annolist_index, meta.people_index);
+                        int break_length = this->param_.crop_size_y();
+                        sprintf(filename, "transformed_data_all_%s_%d_%d", meta.file_name.c_str(), int(meta.objpos.x), int(meta.objpos.y));
+                        ofstream myfile;
+                        myfile.open(filename);
+                        int data_length = this->param_.crop_size_y() * this->param_.crop_size_x() *3; 
 
-    //LOG(INFO) << "before copy data: " << filename << "  " << data_length;
-    for(int i = 0; i<data_length; i++){
-        if(i % break_length == 0) myfile << "\n";
-        myfile << transformed_data[i] << " ";
-    }
-    //LOG(INFO) << "after copy data: " << filename << "  " << data_length;
-    myfile.close();
+                        //LOG(INFO) << "before copy data: " << filename << "  " << data_length;
+                        for(int i = 0; i<data_length; i++){
+                            myfile << transformed_data[i] << " ";
+                        }
+                        LOG(INFO) << "save data: " << filename << "  " << data_length;
+                        myfile.close();
 
-    // sprintf(filename, "transformed_label_%04d_%02d", meta.annolist_index, meta.people_index);
-    int joint_length = this->param_.crop_size_y() * this->param_.crop_size_x() / this->param_.stride() / this->param_.stride() * (18);
-    int limb_length = this->param_.crop_size_y() * this->param_.crop_size_x() / this->param_.stride() / this->param_.stride() * (38);
-    int bg_length = this->param_.crop_size_y() * this->param_.crop_size_x() / this->param_.stride() / this->param_.stride() * (1);
-    int label_length = this->param_.crop_size_y() * this->param_.crop_size_x() / this->param_.stride() / this->param_.stride() * (this->param_.num_parts()+1);
-    int offset = this->param_.crop_size_x() / this->param_.stride();
-    offset *= offset;
-    int offset_joint = label_length + limb_length;
-    int offset_limb = label_length;
-    int offset_bg = label_length + limb_length + joint_length;
+                        // sprintf(filename, "transformed_label_%04d_%02d", meta.annolist_index, meta.people_index);
+                        int joint_length = this->param_.crop_size_y() * this->param_.crop_size_x() / this->param_.stride() / this->param_.stride() * (18);
+                        int limb_length = this->param_.crop_size_y() * this->param_.crop_size_x() / this->param_.stride() / this->param_.stride() * (38);
+                        int bg_length = this->param_.crop_size_y() * this->param_.crop_size_x() / this->param_.stride() / this->param_.stride() * (1);
+                        int label_length = this->param_.crop_size_y() * this->param_.crop_size_x() / this->param_.stride() / this->param_.stride() * (this->param_.num_parts()+1);
+                        int offset = this->param_.crop_size_x() / this->param_.stride();
+                        offset *= offset;
+                        int offset_joint = label_length + limb_length;
+                        int offset_limb = label_length;
+                        int offset_bg = label_length + limb_length + joint_length;
+                        sprintf(filename, "transformed_label_all_%s_%d_%d", meta.file_name.c_str(), int(meta.objpos.x), int(meta.objpos.y));
+                        myfile.open(filename);
+                        for(int i = 0; i < 2*label_length; i ++){
+                            myfile << transformed_label[i] << " ";
+                        }
+                        myfile.close();
+                        LOG(INFO) << "save label: " << filename << "  " << label_length;
+                        // limb
+                        for(int i = 0; i < 19; i++){
+                            sprintf(filename, "transformed_label_limb_%s_%d_%d_%s-%s", meta.file_name.c_str(), int(meta.objpos.x), int(meta.objpos.y), joint_name_vec_[limb_pair_vec[i].first].c_str(), joint_name_vec_[limb_pair_vec[i].second].c_str());
+                            LOG(INFO) << "save label: " << filename; // << "  " << data_length;
+                            myfile.open(filename);
+                            for(int j = 0; j < 2*offset; j ++)
+                                myfile << transformed_label[i*2*offset + j + offset_limb] << " ";
+                            myfile.close();
+                        }
 
-    for(int i = 0; i < 18; i++){
-        sprintf(filename, "transformed_label_joint_%s_%d_%d-%s", meta.file_name.c_str(), int(meta.objpos.x), int(meta.objpos.y), joint_name_vec_[i].c_str());
-        myfile.open(filename);
-        for(int j = 0; j < offset; j ++)
-            myfile << transformed_label[i*offset + j + offset_joint] << " ";
-        myfile.close();
-    }
+                        for(int i = 0; i < 18; i++){
+                            sprintf(filename, "transformed_label_joint_%s_%d_%d-%s", meta.file_name.c_str(), int(meta.objpos.x), int(meta.objpos.y), joint_name_vec_[i].c_str());
+                            myfile.open(filename);
+                            for(int j = 0; j < offset; j ++)
+                                myfile << transformed_label[i*offset + j + offset_joint] << " ";
+                            myfile.close();
+                        }
+                        LOG(INFO) << "save label: " << filename; // << "  " << data_length;
 
-    // limb
-    for(int i = 0; i < 19; i++){
-        sprintf(filename, "transformed_label_limb_%s_%d_%d_%s-%s", meta.file_name.c_str(), int(meta.objpos.x), int(meta.objpos.y), joint_name_vec_[limb_pair_vec[i].first].c_str(), joint_name_vec_[limb_pair_vec[i].second].c_str());
-        myfile.open(filename);
-        for(int j = 0; j < 2*offset; j ++)
-            myfile << transformed_label[i*2*offset + j + offset_limb] << " ";
-        myfile.close();
-    }
 
-    // bg
-    sprintf(filename, "transformed_label_bg_%s_%d_%d", meta.file_name.c_str(), int(meta.objpos.x), int(meta.objpos.y));
-    myfile.open(filename);
-    for(int i = 0; i < bg_length; i++){
-        myfile << transformed_label[label_length + i + offset_bg] << " ";
-    }
-    myfile.close();
-}
+                        // bg
+                        sprintf(filename, "transformed_label_bg_%s_%d_%d", meta.file_name.c_str(), int(meta.objpos.x), int(meta.objpos.y));
+                        myfile.open(filename);
+                        for(int i = 0; i < bg_length; i++){
+                            myfile << transformed_label[label_length + i + offset_bg] << " ";
+                        }
+                        myfile.close();
+                        LOG(INFO) << "save label: " << filename; // << "  " << data_length;
+                    }
 
 template<typename Dtype>
 void CpmDataTransformer<Dtype>::Transform_CPM(const Datum& datum, Blob<Dtype>* transformed_data, Blob<Dtype>* transformed_label, Blob<Dtype>* mask, int cnt) {
@@ -1974,7 +1983,7 @@ void CpmDataTransformer<Dtype>::ReadMetaData_bottomup(MetaData& meta, const stri
   DecodeFloats(data, offset3+3*offset1+12, &meta.bbox.top, 1);
   DecodeFloats(data, offset3+3*offset1+16, &meta.bbox.width, 1);
   DecodeFloats(data, offset3+3*offset1+20, &meta.bbox.height, 1);
-    LOG(INFO) << " get o box: pos: " << meta.objpos.x << " " << meta.objpos.y << " , box " << meta.bbox.left << " " << meta.bbox.top << " " << meta.bbox.width << " " << meta.bbox.height << "area "<< meta.segmentation_area;
+  // LOG(INFO) << " get o box: pos: " << meta.objpos.x << " " << meta.objpos.y << " , box " << meta.bbox.left << " " << meta.bbox.top << " " << meta.bbox.width << " " << meta.bbox.height << "area "<< meta.segmentation_area;
   //meta.bbox.left -= 1;
   //meta.bbox.top -= 1;
 
@@ -2056,12 +2065,12 @@ void CpmDataTransformer<Dtype>::ReadMetaData_bottomup(MetaData& meta, const stri
   // 0: occur/hide
   // 1: normal
   // 2: miss label
-  LOG(INFO) << "Meta read done.";
+  // LOG(INFO) << "Meta read done.";
   ofstream myfile;
-  myfile.open("COCO_train_list.txt", ios::out | ios::app);
+  myfile.open("COCO_train_list_2.txt", ios::out | ios::app);
 
   char filename[100];
-  sprintf(filename, "COCO_train_%012d.jpg", meta.annolist_index);
+  sprintf(filename, "COCO_train_%012d_%d.jpg", meta.annolist_index, meta.numOtherPeople+1);
   myfile << filename << " ";
   myfile << 1 + meta.numOtherPeople << " " ;
   // myfile << meta.bbox.left << " " << meta.bbox.top << " " << meta.bbox.width << " " << meta.bbox.height << " ";
@@ -2085,16 +2094,16 @@ void CpmDataTransformer<Dtype>::ReadMetaData_bottomup(MetaData& meta, const stri
           meta_temp.joint_self.isVisible[i] = 1;
     myfile 
         // << joint_name_vec_[i] << " "
-        << meta_temp.joint_self.joints[i].x - 1 << " "
-        << meta_temp.joint_self.joints[i].y - 1<< " "  
+        << meta_temp.joint_self.joints[i].x + 1 << " "
+        << meta_temp.joint_self.joints[i].y + 1<< " "  
         << meta_temp.joint_self.isVisible[i] << " ";
   }
 
   for(int p=0; p<meta_temp.numOtherPeople; p++){
       // c = 0;
       myfile 
-          << meta_temp.objpos_other[p].x - 1 << " "
-          << meta_temp.objpos_other[p].y - 1 << " "
+          << meta_temp.objpos_other[p].x + 1 << " "
+          << meta_temp.objpos_other[p].y + 1 << " "
           << meta_temp.bboxes_other[p].width << " "
           << meta_temp.bboxes_other[p].height << " ";
     for(int i=0; i<np_in_lmdb; i++){
@@ -2106,8 +2115,8 @@ void CpmDataTransformer<Dtype>::ReadMetaData_bottomup(MetaData& meta, const stri
                 meta_temp.joint_others[p].joints[i].y != 0)
             meta_temp.joint_others[p].isVisible[i] = 1;
           myfile 
-              << meta_temp.joint_others[p].joints[i].x - 1<< " " 
-              << meta_temp.joint_others[p].joints[i].y - 1<< " "
+              << meta_temp.joint_others[p].joints[i].x + 1<< " " 
+              << meta_temp.joint_others[p].joints[i].y + 1<< " "
               << meta_temp.joint_others[p].isVisible[i] << " " ;
       }
   }
@@ -2234,12 +2243,12 @@ void CpmDataTransformer<Dtype>::Transform_bottomup(const Datum& datum, Dtype* tr
   sprintf(name, "COCO_train_%012d.jpg", meta.annolist_index);
   meta.file_name = name;
  
-  LOG(INFO) << " testing image save mask_miss & mask_all" ;
+  // LOG(INFO) << " testing image save mask_miss & mask_all" ;
   static int count = 0; count ++;
-  sprintf(name, "mask_COCO_train_%012d.jpg", meta.annolist_index);
+  sprintf(name, "../train2014mask/mask_COCO_train_%012d.jpg", meta.annolist_index);
   imwrite(name, mask_miss);
-  sprintf(name, "%d_all.jpg", meta.annolist_index);
-  imwrite(name, mask_all);
+  // sprintf(name, "%d_all.jpg", meta.annolist_index);
+  // imwrite(name, mask_all);
   sprintf(name, "COCO_train_%012d.jpg", meta.annolist_index);
   imwrite(name, img);
   bool vis_aug = 0;
@@ -2261,7 +2270,7 @@ void CpmDataTransformer<Dtype>::Transform_bottomup(const Datum& datum, Dtype* tr
   // We only do random transform as augmentation when training.
   if (this->phase_ == TRAIN) {
     as.scale = augmentation_scale(img, img_temp1, mask_miss, mask_all, meta);
-    if(1 && this->param_.visualize())
+    if(vis_aug && this->param_.visualize())
       visualize(img_temp1, meta, as, mask_all);
     //LOG(INFO) << meta.joint_self.joints.size();
     //LOG(INFO) << meta.joint_self.joints[0];
@@ -2363,13 +2372,13 @@ void CpmDataTransformer<Dtype>::Transform_bottomup(const Datum& datum, Dtype* tr
     // putGaussianMaps(transformed_data + 3*offset, meta.objpos, 1, img_aug.cols, img_aug.rows, this->param_.sigma_center());
     VLOG(3) << "image transformation done!";
     generateLabelMap(transformed_label, img_aug, meta);
-    if(1 & this->param_.visualize()){ 
+                                if(vis_aug & this->param_.visualize()){ 
         // visualizeLabelMap(transformed_label, img_aug); 
+      visualizeLabelMap(transformed_label, img_aug, meta.file_name, limb_pair_vec, joint_name_vec_.size());
     }
     VLOG(3) << "After generating label map";
     // starts to visualize everything (transformed_data in 4 ch, label) fed into conv1
-    if(this->param_.visualize()){
-      visualizeLabelMap(transformed_label, img_aug, meta.file_name, limb_pair_vec, joint_name_vec_.size());
+                                if(this->param_.fix_dice() != -1 && this->param_.visualize()){
       dumpEverything(transformed_data, transformed_label, meta);
     }
   }
@@ -2381,7 +2390,11 @@ float CpmDataTransformer<Dtype>::augmentation_scale(Mat& img_src, Mat& img_temp,
                                                  Mat& mask_miss, Mat& mask_all,
                                                  MetaData& meta) {
   // imwrite("test.jpg", img_src);
-  float dice = 0.5; //static_cast <float> (rand()) / static_cast <float> (RAND_MAX); //[0,1]
+  float dice = static_cast <float> (rand()) / static_cast <float> (RAND_MAX); //[0,1]
+
+  if(this->param_.fix_dice() != -1){
+      dice = this->param_.fix_dice();
+  }
   float scale_multiplier;
   //float scale = (this->param_.scale_max() - this->param_.scale_min()) * dice + this->param_.scale_min(); //linear shear into [scale_min, scale_max]
   if(dice > this->param_.scale_prob()) {
@@ -2389,8 +2402,13 @@ float CpmDataTransformer<Dtype>::augmentation_scale(Mat& img_src, Mat& img_temp,
     scale_multiplier = 1;
   }
   else {
-    float dice2 = 0.5; // static_cast <float> (rand()) / static_cast <float> (RAND_MAX); //[0,1]
-    scale_multiplier = (this->param_.scale_max() - this->param_.scale_min()) * dice2 + this->param_.scale_min(); //linear shear into [scale_min, scale_max]
+      float dice2 =static_cast <float> (rand()) / static_cast <float> (RAND_MAX); //[0,1]
+
+      if(this->param_.fix_dice() != -1){
+          dice2 = this->param_.fix_dice();
+      }    
+      
+      scale_multiplier = (this->param_.scale_max() - this->param_.scale_min()) * dice2 + this->param_.scale_min(); //linear shear into [scale_min, scale_max]
   }
   float scale_abs;
   if(!this->param_.use_segmentation_scale()){
@@ -2446,8 +2464,14 @@ float CpmDataTransformer<Dtype>::augmentation_scale(Mat& img_src, Mat& img_temp,
 
 template<typename Dtype>
 Size CpmDataTransformer<Dtype>::augmentation_croppad(Mat& img_src, Mat& img_dst, Mat& mask_miss, Mat& mask_miss_aug, Mat& mask_all, Mat& mask_all_aug, MetaData& meta) {
-  float dice_x = 0.5; // static_cast <float> (rand()) / static_cast <float> (RAND_MAX); //[0,1]
-  float dice_y = 0.5; // static_cast <float> (rand()) / static_cast <float> (RAND_MAX); //[0,1]
+    float dice_x =static_cast <float> (rand()) / static_cast <float> (RAND_MAX); //[0,1]
+    float dice_y =static_cast <float> (rand()) / static_cast <float> (RAND_MAX); //[0,1]
+
+    if(this->param_.fix_dice() != -1){
+        dice_x = this->param_.fix_dice();
+        dice_y = this->param_.fix_dice();
+    }
+
   int crop_x = this->param_.crop_size_x();
   int crop_y = this->param_.crop_size_y();
 
@@ -2503,8 +2527,11 @@ template<typename Dtype>
 bool CpmDataTransformer<Dtype>::augmentation_flip(Mat& img_src, Mat& img_aug, Mat& mask_miss, Mat& mask_all, MetaData& meta) {
   bool doflip;
   if(this->param_.aug_way() == "rand"){
-    float dice = 0.5; // static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
-    doflip = (dice <= this->param_.flip_prob());
+
+      float dice =  static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
+      if(this->param_.fix_dice() != -1)
+          dice = this->param_.fix_dice(); 
+      doflip = (dice <= this->param_.flip_prob());
   }
   else if(this->param_.aug_way() == "table"){
     doflip = (aug_flips[meta.write_number][meta.epoch % this->param_.num_total_augs()] == 1);
@@ -2555,7 +2582,11 @@ float CpmDataTransformer<Dtype>::augmentation_rotate(Mat& img_src, Mat& img_dst,
 
   float degree;
   if(this->param_.aug_way() == "rand"){
-    float dice = 0.5; //static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
+
+                                    float dice =  static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
+
+                                    if(this->param_.fix_dice() != -1)
+                                        dice = this->param_.fix_dice(); 
     degree = (dice - 0.5) * 2 * this->param_.max_rotate_degree();
   }
   else if(this->param_.aug_way() == "table"){
